@@ -1,0 +1,2425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NoctOS</title>
+<style>
+/* ═══════════════════════════════════════════════════════
+   NOCTOS — CSS CUSTOM PROPERTIES & GLOBAL RESET
+   ═══════════════════════════════════════════════════════ */
+:root {
+  --bg-base: #0a0a0f;
+  --bg-window: rgba(22, 22, 30, 0.82);
+  --bg-surface: #16161f;
+  --bg-elevated: #1e1e2a;
+  --bg-hover: rgba(255,255,255,0.05);
+  --bg-active: rgba(59,130,246,0.15);
+  --border-subtle: rgba(255,255,255,0.07);
+  --border-default: rgba(255,255,255,0.10);
+  --border-strong: rgba(255,255,255,0.16);
+  --border-accent: rgba(59,130,246,0.40);
+  --text-primary: #f0f0f5;
+  --text-secondary: rgba(240,240,245,0.50);
+  --text-tertiary: rgba(240,240,245,0.28);
+  --accent: #3b82f6;
+  --accent-glow: rgba(59,130,246,0.20);
+  --accent-dim: rgba(59,130,246,0.10);
+  --red: #ff5f57;
+  --yellow: #febc2e;
+  --green: #28c840;
+  --shadow-window: 0 32px 80px rgba(0,0,0,0.70), 0 8px 24px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.06);
+  --shadow-menu: 0 8px 32px rgba(0,0,0,0.60);
+  --radius-window: 12px;
+  --radius-menu: 10px;
+  --radius-sm: 6px;
+  --blur-window: blur(40px) saturate(180%);
+  --blur-menu: blur(24px) saturate(160%);
+  --blur-dock: blur(48px) saturate(200%);
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Cascadia Code', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-base);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  user-select: none;
+  height: 100vh;
+  width: 100vw;
+}
+input, textarea { font-family: var(--font); }
+
+/* ═══════════════════════════════════════════════════════
+   BOOT SCREEN
+   ═══════════════════════════════════════════════════════ */
+#boot-screen {
+  position: fixed; inset: 0; z-index: 99999;
+  background: #000;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.4s ease;
+}
+#boot-screen.fade-out { opacity: 0; pointer-events: none; }
+#boot-logo { opacity: 0; transition: opacity 1.2s ease; }
+#boot-logo.visible { opacity: 1; }
+#boot-text { opacity: 0; color: var(--text-secondary); font-size: 24px; font-weight: 500; margin-top: 16px; transition: opacity 0.8s ease; }
+#boot-text.visible { opacity: 1; }
+#boot-progress { width: 320px; height: 2px; background: var(--border-subtle); border-radius: 1px; margin-top: 24px; opacity: 0; transition: opacity 0.3s ease; overflow: hidden; }
+#boot-progress.visible { opacity: 1; }
+#boot-progress-fill { width: 0%; height: 100%; background: var(--accent); border-radius: 1px; transition: width 0.6s ease; }
+
+/* ═══════════════════════════════════════════════════════
+   DESKTOP
+   ═══════════════════════════════════════════════════════ */
+#desktop {
+  position: fixed; inset: 28px 0 0 0;
+  background: var(--bg-base);
+  transition: background 0.6s ease;
+}
+#wallpaper-nebula { background: radial-gradient(ellipse at 30% 60%, #1a0a2e 0%, #0a0a0f 60%); }
+#wallpaper-aurora { background: linear-gradient(135deg, #0a0f1e 0%, #0d1a0f 50%, #0a0a0f 100%); }
+#wallpaper-midnight { background: radial-gradient(circle at 70% 20%, #0f0f2e 0%, #0a0a0f 70%); }
+
+.desktop-icon {
+  position: absolute; width: 80px; display: flex; flex-direction: column;
+  align-items: center; gap: 4px; padding: 6px; border-radius: var(--radius-sm);
+  cursor: pointer; border: 1.5px solid transparent;
+}
+.desktop-icon:hover { background: var(--accent-dim); border-color: var(--border-accent); }
+.desktop-icon.selected { background: var(--accent-dim); border-color: var(--border-accent); }
+.desktop-icon .icon-img { width: 52px; height: 52px; }
+.desktop-icon .icon-label { font-size: 11px; color: var(--text-primary); text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.8); line-height: 1.3; word-break: break-word; }
+
+/* ═══════════════════════════════════════════════════════
+   MENU BAR
+   ═══════════════════════════════════════════════════════ */
+#menubar {
+  position: fixed; top: 0; left: 0; right: 0; height: 28px; z-index: 9999;
+  background: rgba(12,12,18,0.88);
+  backdrop-filter: var(--blur-menu);
+  border-bottom: 0.5px solid var(--border-subtle);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 10px; font-size: 13px; color: var(--text-primary);
+}
+#menubar-left, #menubar-right { display: flex; align-items: center; gap: 0; }
+#menubar-left { gap: 2px; }
+.menu-item {
+  padding: 2px 10px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+  font-size: 13px; line-height: 22px;
+}
+.menu-item:hover { background: var(--bg-hover); }
+.menu-item.app-name { font-weight: 600; }
+.menu-logo { padding: 2px 6px; cursor: pointer; display: flex; align-items: center; border-radius: 4px; }
+.menu-logo:hover { background: var(--bg-hover); }
+.menu-logo svg { width: 16px; height: 16px; }
+.tray-item { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--text-secondary); }
+.tray-item:hover { background: var(--bg-hover); }
+.tray-item svg { width: 14px; height: 14px; }
+#clock-display { font-size: 13px; color: var(--text-primary); padding: 2px 6px; border-radius: 4px; cursor: default; white-space: nowrap; }
+
+/* Menu dropdowns */
+.menu-dropdown {
+  position: absolute; top: 28px; min-width: 200px;
+  background: var(--bg-elevated); backdrop-filter: var(--blur-menu);
+  border: 0.5px solid var(--border-default); border-radius: var(--radius-menu);
+  box-shadow: var(--shadow-menu); padding: 4px 0; z-index: 10001;
+  display: none; font-size: 13px;
+}
+.menu-dropdown.visible { display: block; }
+.menu-dropdown-item { padding: 4px 16px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+.menu-dropdown-item:hover { background: var(--bg-hover); }
+.menu-dropdown-item .shortcut { color: var(--text-tertiary); font-size: 12px; margin-left: 24px; }
+.menu-dropdown-divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+
+/* ═══════════════════════════════════════════════════════
+   DOCK
+   ═══════════════════════════════════════════════════════ */
+#dock-container {
+  position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
+  z-index: 9998; padding: 0 0 4px 0;
+}
+#dock {
+  display: flex; align-items: flex-end; gap: 4px;
+  padding: 6px 12px; border-radius: 20px;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: var(--blur-dock);
+  border: 0.5px solid var(--border-default);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: gap 0.15s ease;
+}
+.dock-item {
+  display: flex; flex-direction: column; align-items: center; cursor: pointer;
+  transition: transform 0.15s ease; position: relative;
+}
+.dock-item .dock-icon {
+  width: 56px; height: 56px; border-radius: 13px;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  will-change: transform;
+}
+.dock-item .dock-label {
+  position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+  background: var(--bg-elevated); border: 0.5px solid var(--border-default);
+  border-radius: 6px; padding: 3px 8px; font-size: 12px; color: var(--text-primary);
+  white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s ease;
+}
+.dock-item:hover .dock-label { opacity: 1; }
+.dock-item .dock-running {
+  width: 4px; height: 4px; border-radius: 50%; background: var(--text-secondary);
+  margin-top: 2px; opacity: 0; transition: opacity 0.2s ease;
+}
+.dock-item.running .dock-running { opacity: 1; }
+@keyframes dock-bounce {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-12px); }
+  50% { transform: translateY(0); }
+  75% { transform: translateY(-6px); }
+}
+.dock-item.bouncing .dock-icon { animation: dock-bounce 0.6s ease; }
+
+/* ═══════════════════════════════════════════════════════
+   CONTEXT MENU
+   ═══════════════════════════════════════════════════════ */
+#context-menu {
+  position: fixed; min-width: 200px; z-index: 9997;
+  background: var(--bg-elevated); backdrop-filter: var(--blur-menu);
+  border: 0.5px solid var(--border-default); border-radius: var(--radius-menu);
+  box-shadow: var(--shadow-menu); padding: 4px 0; display: none; font-size: 13px;
+}
+#context-menu.visible { display: block; }
+.ctx-item { padding: 4px 16px; cursor: pointer; }
+.ctx-item:hover { background: var(--bg-hover); }
+.ctx-divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+
+/* ═══════════════════════════════════════════════════════
+   WINDOW SYSTEM
+   ═══════════════════════════════════════════════════════ */
+.window {
+  position: absolute; background: var(--bg-window); backdrop-filter: var(--blur-window);
+  border: 0.5px solid var(--border-default); border-radius: var(--radius-window);
+  box-shadow: var(--shadow-window); display: flex; flex-direction: column;
+  min-width: 300px; min-height: 200px; will-change: transform, opacity;
+  overflow: hidden;
+}
+.window.anim-open {
+  animation: win-open 180ms cubic-bezier(0.34,1.2,0.64,1) forwards;
+}
+.window.anim-close {
+  animation: win-close 120ms ease-in forwards;
+}
+.window.anim-minimize {
+  animation: win-minimize 200ms ease-in forwards;
+}
+@keyframes win-open { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes win-close { from { transform: scale(0.95); opacity: 1; } to { transform: scale(0.95); opacity: 0; } }
+@keyframes win-minimize { from { transform: scale(1) translateY(0); opacity: 1; } to { transform: scale(0.5) translateY(100px); opacity: 0; } }
+
+.window-titlebar {
+  height: 40px; display: flex; align-items: center; padding: 0 12px;
+  background: rgba(255,255,255,0.02); border-bottom: 0.5px solid var(--border-subtle);
+  border-radius: var(--radius-window) var(--radius-window) 0 0; cursor: default;
+  flex-shrink: 0; position: relative;
+}
+.window-titlebar[data-draggable="true"] { cursor: grab; }
+.window-titlebar[data-draggable="true"]:active { cursor: grabbing; }
+
+.traffic-lights { display: flex; gap: 6px; align-items: center; z-index: 1; }
+.traffic-light {
+  width: 12px; height: 12px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; cursor: pointer;
+  position: relative; transition: filter 0.15s ease;
+}
+.traffic-light svg { width: 7px; height: 7px; opacity: 0; transition: opacity 0.15s ease; }
+.window:hover .traffic-light svg { opacity: 1; }
+.tl-red { background: var(--red); }
+.tl-yellow { background: var(--yellow); }
+.tl-green { background: var(--green); }
+.tl-red:hover { filter: brightness(1.1); }
+.tl-yellow:hover { filter: brightness(1.1); }
+.tl-green:hover { filter: brightness(1.1); }
+
+.window-title {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  font-size: 13px; font-weight: 500; color: var(--text-secondary);
+  white-space: nowrap; pointer-events: none;
+}
+
+.window-content {
+  flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  position: relative;
+}
+
+.window-resize {
+  position: absolute; bottom: 0; right: 0; width: 16px; height: 16px;
+  cursor: se-resize; z-index: 2;
+}
+.window-resize::after {
+  content: ''; position: absolute; bottom: 3px; right: 3px;
+  width: 8px; height: 8px;
+  border-right: 2px solid var(--text-tertiary);
+  border-bottom: 2px solid var(--text-tertiary);
+  opacity: 0.5;
+}
+
+/* Snap preview ghost */
+#snap-ghost {
+  position: fixed; z-index: 9996; pointer-events: none; display: none;
+  background: var(--accent-glow); border: 1.5px solid var(--accent);
+  border-radius: var(--radius-window); transition: all 0.15s ease;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FINDER
+   ═══════════════════════════════════════════════════════ */
+.finder-layout { display: flex; flex: 1; overflow: hidden; }
+.finder-sidebar {
+  width: 200px; background: rgba(0,0,0,0.15); border-right: 0.5px solid var(--border-subtle);
+  padding: 8px 0; overflow-y: auto; flex-shrink: 0;
+}
+.finder-sidebar-section { padding: 4px 12px; font-size: 11px; font-weight: 600; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
+.finder-sidebar-item {
+  display: flex; align-items: center; gap: 8px; padding: 4px 12px; margin: 1px 6px;
+  border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--text-primary);
+}
+.finder-sidebar-item:hover { background: var(--bg-hover); }
+.finder-sidebar-item.active { background: var(--bg-hover); }
+.finder-sidebar-item svg { width: 14px; height: 14px; flex-shrink: 0; }
+.finder-toolbar {
+  height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+  border-bottom: 0.5px solid var(--border-subtle); background: rgba(255,255,255,0.02);
+  flex-shrink: 0;
+}
+.finder-toolbar button {
+  background: none; border: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 16px; padding: 4px 6px; border-radius: 4px;
+}
+.finder-toolbar button:hover { background: var(--bg-hover); color: var(--text-primary); }
+.finder-toolbar button:disabled { color: var(--text-tertiary); cursor: default; }
+.finder-breadcrumb { font-size: 12px; color: var(--text-secondary); flex: 1; text-align: center; }
+.finder-breadcrumb span { cursor: pointer; }
+.finder-breadcrumb span:hover { color: var(--text-primary); }
+.finder-search {
+  background: rgba(255,255,255,0.06); border: 0.5px solid var(--border-default);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; color: var(--text-primary);
+  width: 160px; outline: none;
+}
+.finder-search:focus { border-color: var(--accent); }
+.finder-content { flex: 1; overflow-y: auto; padding: 16px; }
+.finder-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.finder-grid-item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px; border-radius: 8px; cursor: pointer;
+}
+.finder-grid-item:hover { background: var(--bg-hover); }
+.finder-grid-item .file-icon { width: 56px; height: 56px; }
+.finder-grid-item .file-name { font-size: 12px; color: var(--text-primary); text-align: center; word-break: break-all; }
+.finder-list { width: 100%; }
+.finder-list-header {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 4px 12px;
+  font-size: 11px; color: var(--text-tertiary); border-bottom: 0.5px solid var(--border-subtle);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.finder-list-row {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 4px 12px;
+  font-size: 13px; color: var(--text-primary); align-items: center;
+  border-radius: 4px; cursor: pointer; height: 28px;
+}
+.finder-list-row:hover { background: var(--bg-hover); }
+.finder-list-row:nth-child(even) { background: rgba(255,255,255,0.015); }
+
+/* ═══════════════════════════════════════════════════════
+   SAFARI
+   ═══════════════════════════════════════════════════════ */
+.safari-tabs {
+  display: flex; align-items: flex-end; gap: 1px; padding: 0 8px;
+  background: rgba(0,0,0,0.2); height: 36px; flex-shrink: 0;
+}
+.safari-tab {
+  height: 30px; max-width: 180px; min-width: 80px; flex: 1; display: flex;
+  align-items: center; gap: 6px; padding: 0 10px; font-size: 12px;
+  color: var(--text-secondary); border-radius: 8px 8px 0 0; cursor: pointer;
+  position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.safari-tab.active { background: var(--bg-surface); color: var(--text-primary); }
+.safari-tab .tab-close { opacity: 0; font-size: 14px; cursor: pointer; padding: 2px; border-radius: 3px; }
+.safari-tab:hover .tab-close { opacity: 0.5; }
+.safari-tab .tab-close:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+.safari-tab-add { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 6px; font-size: 16px; color: var(--text-secondary); flex-shrink: 0; }
+.safari-tab-add:hover { background: var(--bg-hover); }
+.safari-toolbar {
+  height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px;
+  border-bottom: 0.5px solid var(--border-subtle); flex-shrink: 0;
+}
+.safari-toolbar button {
+  background: none; border: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 16px; padding: 4px 6px; border-radius: 4px;
+}
+.safari-toolbar button:hover { background: var(--bg-hover); color: var(--text-primary); }
+.safari-url-bar {
+  flex: 1; background: var(--bg-elevated); border: 0.5px solid var(--border-default);
+  border-radius: 8px; height: 28px; padding: 0 12px; font-size: 13px;
+  color: var(--text-primary); text-align: center; outline: none;
+}
+.safari-url-bar:focus { border-color: var(--accent); text-align: left; }
+.safari-favorites-bar {
+  height: 28px; display: flex; align-items: center; gap: 4px; padding: 0 12px;
+  border-bottom: 0.5px solid var(--border-subtle); flex-shrink: 0;
+}
+.safari-fav-pill {
+  font-size: 12px; color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; cursor: pointer;
+}
+.safari-fav-pill:hover { color: var(--text-primary); background: var(--bg-hover); }
+.safari-content { flex: 1; overflow: hidden; position: relative; background: var(--bg-base); }
+.safari-content iframe { width: 100%; height: 100%; border: none; }
+.safari-start-page {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 24px; padding: 40px;
+}
+.safari-start-search {
+  width: 320px; height: 36px; background: var(--bg-elevated); border: 0.5px solid var(--border-default);
+  border-radius: 8px; padding: 0 12px; font-size: 14px; color: var(--text-primary);
+  outline: none; text-align: center;
+}
+.safari-start-search:focus { border-color: var(--accent); text-align: left; }
+.safari-start-favs { display: flex; gap: 24px; }
+.safari-start-fav {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; padding: 8px; border-radius: 8px;
+}
+.safari-start-fav:hover { background: var(--bg-hover); }
+.safari-start-fav-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.safari-start-fav-label { font-size: 11px; color: var(--text-secondary); }
+.safari-loading { position: absolute; top: 0; left: 0; height: 2px; background: var(--accent); transition: width 0.3s ease; z-index: 1; }
+
+/* ═══════════════════════════════════════════════════════
+   TERMINAL
+   ═══════════════════════════════════════════════════════ */
+.terminal-body {
+  background: #0d0d14; flex: 1; padding: 12px 16px; overflow-y: auto;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.6; color: #e0e0e0;
+}
+.terminal-body::-webkit-scrollbar { width: 4px; }
+.terminal-body::-webkit-scrollbar-track { background: transparent; }
+.terminal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+.terminal-line { white-space: pre-wrap; word-break: break-all; }
+.terminal-prompt-user { color: var(--accent); }
+.terminal-prompt-path { color: #a8b8d8; }
+.terminal-prompt-char { color: var(--text-secondary); }
+.terminal-input-row { display: flex; align-items: center; }
+.terminal-input {
+  flex: 1; background: none; border: none; outline: none; color: #e0e0e0;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.6; caret-color: var(--accent);
+}
+.terminal-cursor {
+  display: inline-block; width: 2px; height: 15px; background: var(--accent);
+  animation: blink 1s step-end infinite; vertical-align: text-bottom;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.terminal-output-blue { color: #5b9ef6; }
+.terminal-output-green { color: #28c840; }
+.terminal-output-yellow { color: #febc2e; }
+.terminal-output-red { color: #ff5f57; }
+.terminal-output-white { color: #f0f0f5; }
+
+/* ═══════════════════════════════════════════════════════
+   NOTES
+   ═══════════════════════════════════════════════════════ */
+.notes-layout { display: flex; flex: 1; overflow: hidden; }
+.notes-sidebar {
+  width: 220px; background: rgba(0,0,0,0.15); border-right: 0.5px solid var(--border-subtle);
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.notes-sidebar-top {
+  display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+  border-bottom: 0.5px solid var(--border-subtle);
+}
+.notes-sidebar-search {
+  flex: 1; background: rgba(255,255,255,0.06); border: 0.5px solid var(--border-default);
+  border-radius: 6px; padding: 4px 8px; font-size: 12px; color: var(--text-primary); outline: none;
+}
+.notes-sidebar-search:focus { border-color: var(--accent); }
+.notes-new-btn {
+  background: var(--accent); border: none; color: white; width: 24px; height: 24px;
+  border-radius: 6px; cursor: pointer; font-size: 16px; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.notes-new-btn:hover { filter: brightness(1.1); }
+.notes-list { flex: 1; overflow-y: auto; }
+.note-item {
+  padding: 10px 12px; border-left: 2px solid transparent; cursor: pointer;
+  height: 64px;
+}
+.note-item:hover { background: var(--bg-hover); }
+.note-item.active { background: var(--bg-active); border-left-color: var(--accent); }
+.note-item-title { font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note-item-preview { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.note-item-date { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.notes-editor { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.notes-editor-title {
+  border: none; background: transparent; font-size: 22px; font-weight: 600;
+  color: var(--text-primary); padding: 16px 20px 8px; outline: none; width: 100%;
+}
+.notes-editor-toolbar {
+  display: flex; align-items: center; gap: 4px; padding: 6px 16px;
+  border-bottom: 0.5px solid var(--border-subtle); flex-shrink: 0;
+}
+.notes-toolbar-btn {
+  background: none; border: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 14px; padding: 4px 8px; border-radius: 4px; font-weight: 600;
+}
+.notes-toolbar-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.notes-editor-content {
+  flex: 1; padding: 16px 20px; overflow-y: auto; font-size: 14px; line-height: 1.7;
+  color: var(--text-primary); outline: none;
+}
+.notes-editor-content:empty::before {
+  content: 'Start typing...'; color: var(--text-tertiary);
+}
+.notes-save-pill {
+  display: flex; align-items: center; gap: 4px; font-size: 11px; color: #28c840;
+  margin-left: auto; opacity: 0; transition: opacity 0.3s ease;
+}
+.notes-save-pill.visible { opacity: 1; }
+.notes-save-dot { width: 6px; height: 6px; border-radius: 50%; background: #28c840; }
+
+/* ═══════════════════════════════════════════════════════
+   CALCULATOR
+   ═══════════════════════════════════════════════════════ */
+.calc-body { background: #0d0d14; display: flex; flex-direction: column; height: 100%; }
+.calc-display {
+  padding: 16px 20px; text-align: right; flex-shrink: 0;
+}
+.calc-expression { font-size: 14px; color: var(--text-secondary); min-height: 20px; }
+.calc-value { font-size: 36px; font-weight: 300; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; }
+.calc-buttons {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  padding: 8px 12px 12px; flex: 1;
+}
+.calc-btn {
+  border: none; border-radius: 50%; font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: filter 80ms ease, transform 80ms ease;
+  aspect-ratio: 1; width: 100%; max-width: 60px; justify-self: center;
+  background: var(--bg-elevated); color: var(--text-primary);
+}
+.calc-btn:hover { filter: brightness(1.2); }
+.calc-btn:active { filter: brightness(0.9); transform: scale(0.96); }
+.calc-btn.fn { background: rgba(255,255,255,0.15); }
+.calc-btn.op { background: var(--accent); color: white; }
+.calc-btn.zero { grid-column: span 2; border-radius: 28px; aspect-ratio: auto; height: 100%; max-height: 60px; width: auto; justify-self: stretch; }
+
+/* ═══════════════════════════════════════════════════════
+   SETTINGS
+   ═══════════════════════════════════════════════════════ */
+.settings-layout { display: flex; flex: 1; overflow: hidden; }
+.settings-sidebar {
+  width: 200px; background: rgba(0,0,0,0.15); border-right: 0.5px solid var(--border-subtle);
+  padding: 8px 0; flex-shrink: 0;
+}
+.settings-nav-item {
+  padding: 6px 16px; font-size: 13px; cursor: pointer; color: var(--text-primary);
+}
+.settings-nav-item:hover { background: var(--bg-hover); }
+.settings-nav-item.active { background: var(--bg-active); color: var(--accent); }
+.settings-panel { flex: 1; padding: 24px; overflow-y: auto; }
+.settings-panel h2 { font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid var(--border-subtle); }
+.settings-label { font-size: 13px; color: var(--text-primary); }
+.settings-value { font-size: 13px; color: var(--text-secondary); }
+.settings-input {
+  background: var(--bg-elevated); border: 0.5px solid var(--border-default);
+  border-radius: 6px; padding: 6px 10px; font-size: 13px; color: var(--text-primary);
+  outline: none; width: 200px;
+}
+.settings-input:focus { border-color: var(--accent); }
+.settings-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+.settings-checkbox input { accent-color: var(--accent); }
+.accent-swatches { display: flex; gap: 8px; margin-top: 8px; }
+.accent-swatch {
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.accent-swatch:hover { transform: scale(1.1); }
+.accent-swatch.active { border-color: white; transform: scale(1.1); }
+.wallpaper-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+.wallpaper-thumb {
+  width: 120px; height: 80px; border-radius: 8px; cursor: pointer; border: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+.wallpaper-thumb:hover { border-color: var(--border-strong); }
+.wallpaper-thumb.active { border-color: var(--accent); }
+.about-panel { text-align: center; padding-top: 40px; }
+.about-logo { margin-bottom: 16px; }
+.about-name { font-size: 36px; font-weight: 700; color: var(--text-primary); }
+.about-version { font-size: 14px; color: var(--text-secondary); margin-top: 4px; margin-bottom: 24px; }
+.about-divider { height: 1px; background: var(--border-subtle); margin: 0 auto 24px; max-width: 400px; }
+.about-table { text-align: left; max-width: 400px; margin: 0 auto; }
+.about-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 0.5px solid var(--border-subtle); font-size: 13px; }
+.about-row-label { color: var(--text-secondary); }
+.about-row-value { color: var(--text-primary); }
+.settings-slider { width: 200px; accent-color: var(--accent); }
+
+/* ═══════════════════════════════════════════════════════
+   SPOTLIGHT
+   ═══════════════════════════════════════════════════════ */
+#spotlight-overlay {
+  position: fixed; inset: 0; z-index: 9998; background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(8px); display: none; align-items: flex-start;
+  justify-content: center; padding-top: 20vh;
+}
+#spotlight-overlay.visible { display: flex; }
+#spotlight-panel {
+  width: 620px; background: var(--bg-elevated); border: 0.5px solid var(--border-strong);
+  border-radius: 14px; box-shadow: 0 32px 80px rgba(0,0,0,0.80);
+  backdrop-filter: var(--blur-menu); overflow: hidden;
+}
+#spotlight-input-row {
+  display: flex; align-items: center; padding: 0 16px; height: 52px; gap: 10px;
+}
+#spotlight-input-row svg { width: 18px; height: 18px; color: var(--text-tertiary); flex-shrink: 0; }
+#spotlight-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  font-size: 18px; color: var(--text-primary);
+}
+#spotlight-results { border-top: 0.5px solid var(--border-subtle); max-height: 400px; overflow-y: auto; }
+.spotlight-section-label { padding: 8px 16px 4px; font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; }
+.spotlight-result {
+  display: flex; align-items: center; gap: 10px; padding: 8px 16px; cursor: pointer;
+  font-size: 13px;
+}
+.spotlight-result:hover, .spotlight-result.selected { background: var(--bg-hover); }
+.spotlight-result-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-size: 0; font-size: 14px; }
+.spotlight-result-name { flex: 1; color: var(--text-primary); }
+.spotlight-result-cat { font-size: 11px; color: var(--text-tertiary); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; }
+
+/* ═══════════════════════════════════════════════════════
+   NOTIFICATION CENTER
+   ═══════════════════════════════════════════════════════ */
+#notif-center {
+  position: fixed; top: 28px; right: 0; bottom: 0; width: 340px;
+  background: rgba(18,18,26,0.92); backdrop-filter: var(--blur-window);
+  border-left: 0.5px solid var(--border-subtle); z-index: 9995;
+  transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  display: flex; flex-direction: column; padding: 16px; overflow-y: auto;
+}
+#notif-center.open { transform: translateX(0); }
+.notif-section-title { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; margin-top: 16px; }
+.notif-section-title:first-child { margin-top: 0; }
+.notif-card {
+  background: rgba(255,255,255,0.04); border: 0.5px solid var(--border-subtle);
+  border-radius: 10px; padding: 12px; margin-bottom: 8px;
+}
+.notif-card-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
+.notif-card-body { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.notif-card-time { font-size: 11px; color: var(--text-tertiary); margin-top: 6px; }
+.notif-weather { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.04); border: 0.5px solid var(--border-subtle); border-radius: 10px; margin-bottom: 8px; }
+.notif-weather-temp { font-size: 32px; font-weight: 300; color: var(--text-primary); }
+.notif-weather-desc { font-size: 13px; color: var(--text-secondary); }
+.notif-weather-icon { font-size: 36px; }
+
+/* ═══════════════════════════════════════════════════════
+   APP SWITCHER (Cmd+Tab)
+   ═══════════════════════════════════════════════════════ */
+#app-switcher {
+  position: fixed; inset: 0; z-index: 9998; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.45); backdrop-filter: blur(8px);
+}
+#app-switcher.visible { display: flex; }
+#app-switcher-panel {
+  display: flex; gap: 12px; padding: 16px 24px; border-radius: 14px;
+  background: var(--bg-elevated); border: 0.5px solid var(--border-strong);
+  box-shadow: 0 32px 80px rgba(0,0,0,0.80); backdrop-filter: var(--blur-menu);
+}
+.switcher-app {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer;
+}
+.switcher-app-icon { width: 60px; height: 60px; border-radius: 14px; border: 3px solid transparent; transition: border-color 0.15s ease; }
+.switcher-app.active .switcher-app-icon { border-color: var(--accent); }
+.switcher-app-name { font-size: 11px; color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════════════════
+   MISSION CONTROL
+   ═══════════════════════════════════════════════════════ */
+#mission-control {
+  position: fixed; inset: 0; z-index: 9997; display: none;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(20px);
+  padding: 60px 40px 80px; align-items: center; justify-content: center;
+}
+#mission-control.visible { display: flex; }
+#mc-grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.mc-tile {
+  border-radius: var(--radius-window); overflow: hidden; cursor: pointer;
+  border: 2px solid transparent; transition: border-color 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.50);
+}
+.mc-tile:hover { border-color: var(--accent); transform: scale(1.03); }
+.mc-tile-title { font-size: 12px; color: var(--text-primary); text-align: center; padding: 6px; background: rgba(0,0,0,0.5); }
+
+/* ═══════════════════════════════════════════════════════
+   SCREENSAVER
+   ═══════════════════════════════════════════════════════ */
+#screensaver {
+  position: fixed; inset: 0; z-index: 99990; background: #000; display: none;
+  align-items: center; justify-content: center;
+}
+#screensaver.active { display: flex; }
+#screensaver-time {
+  font-size: 120px; font-weight: 200; color: rgba(255,255,255,0.15);
+  font-family: var(--font); animation: ss-drift 20s ease-in-out infinite;
+}
+@keyframes ss-drift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(30px, -20px) rotate(0.5deg); }
+  50% { transform: translate(-20px, 30px) rotate(-0.3deg); }
+  75% { transform: translate(10px, -10px) rotate(0.2deg); }
+}
+
+/* ═══════════════════════════════════════════════════════
+   CALENDAR DROPDOWN
+   ═══════════════════════════════════════════════════════ */
+#calendar-dropdown {
+  position: fixed; top: 28px; right: 10px; width: 280px; z-index: 10001;
+  background: var(--bg-elevated); backdrop-filter: var(--blur-menu);
+  border: 0.5px solid var(--border-default); border-radius: var(--radius-menu);
+  box-shadow: var(--shadow-menu); padding: 16px; display: none;
+}
+#calendar-dropdown.visible { display: block; }
+.cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.cal-month { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.cal-nav { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+.cal-nav:hover { background: var(--bg-hover); }
+.cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px; }
+.cal-days { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; }
+.cal-day { padding: 4px; border-radius: 50%; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+.cal-day:hover { background: var(--bg-hover); }
+.cal-day.today { background: var(--accent); color: white; font-weight: 600; }
+.cal-day.other-month { color: var(--text-tertiary); }
+
+/* ═══════════════════════════════════════════════════════
+   DOCK CONTEXT MENU
+   ═══════════════════════════════════════════════════════ */
+.dock-context-menu {
+  position: fixed; z-index: 9997; min-width: 160px;
+  background: var(--bg-elevated); backdrop-filter: var(--blur-menu);
+  border: 0.5px solid var(--border-default); border-radius: var(--radius-menu);
+  box-shadow: var(--shadow-menu); padding: 4px 0; font-size: 13px; display: none;
+}
+.dock-context-menu.visible { display: block; }
+.dock-ctx-item { padding: 4px 16px; cursor: pointer; }
+.dock-ctx-item:hover { background: var(--bg-hover); }
+.dock-ctx-divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+
+/* Scrollbar for all panels */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ BOOT SCREEN ═══════════ -->
+<div id="boot-screen">
+  <div id="boot-logo">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <path d="M24 4C12.954 4 4 12.954 4 24s8.954 20 20 20c3.6 0 6.99-.97 9.91-2.65C30.38 43.18 26.32 44 22 44 12.06 44 4 35.94 4 26c0-8.85 6.37-16.19 14.73-17.68C20.47 5.37 22.2 4 24 4z" fill="var(--accent)"/>
+    </svg>
+  </div>
+  <div id="boot-text">NoctOS</div>
+  <div id="boot-progress"><div id="boot-progress-fill"></div></div>
+</div>
+
+<!-- ═══════════ MENU BAR ═══════════ -->
+<div id="menubar">
+  <div id="menubar-left">
+    <div class="menu-logo" id="menu-logo" title="About NoctOS">
+      <svg viewBox="0 0 16 16" fill="var(--accent)"><path d="M8 1C4.13 1 1 4.13 1 8s3.13 7 7 7c1.2 0 2.33-.26 3.31-.71C9.47 13.88 8 12.1 8 10c0-3.31 2.69-6 6-6 .68 0 1.33.11 1.94.32C14.63 2.57 11.56 1 8 1z"/></svg>
+    </div>
+    <div class="menu-item app-name" id="active-app-name">NoctOS</div>
+    <div class="menu-item" data-menu="file">File</div>
+    <div class="menu-item" data-menu="edit">Edit</div>
+    <div class="menu-item" data-menu="view">View</div>
+    <div class="menu-item" data-menu="window">Window</div>
+    <div class="menu-item" data-menu="help">Help</div>
+  </div>
+  <div id="menubar-right">
+    <div class="tray-item" id="notif-tray-btn" title="Notification Center">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5a4.5 4.5 0 00-4.5 4.5v3L2 11v1h12v-1l-1.5-2v-3A4.5 4.5 0 008 1.5zM6.5 12.5a1.5 1.5 0 003 0h-3z"/></svg>
+    </div>
+    <div class="tray-item" title="Battery">
+      <svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="4" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1" fill="none"/><rect x="13" y="6" width="2" height="4" rx="0.5" fill="currentColor"/><rect x="2" y="5" width="9.5" height="6" rx="0.5" fill="currentColor"/></svg>
+      <span>87%</span>
+    </div>
+    <div class="tray-item" title="WiFi">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 12.5a1 1 0 100 2 1 1 0 000-2zM3.05 8.54a.75.75 0 011.06-.02A5.48 5.48 0 008 10c1.5 0 2.88-.57 3.89-1.48a.75.75 0 10-.98-1.13A3.98 3.98 0 018 8.5a3.98 3.98 0 01-2.91-1.11.75.75 0 00-1.04.15zM1.01 6.04a.75.75 0 011.04.1C3.54 7.7 5.67 8.5 8 8.5s4.46-.8 5.95-2.36a.75.75 0 10-1.04-1.06C11.65 6.44 9.9 7 8 7s-3.65-.56-4.91-1.42a.75.75 0 00-.08-.54z"/></svg>
+    </div>
+    <div class="tray-item" title="Volume">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 5.5v5h2.5l3.5 3V2.5L4.5 5.5H2zm8.5-1a5 5 0 010 7m1.5-9a7.5 7.5 0 010 11"/></svg>
+    </div>
+    <div class="menu-item" id="clock-display"></div>
+    <div class="tray-item" id="spotlight-btn" title="Spotlight Search">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 110-10 5 5 0 010 10z"/></svg>
+    </div>
+  </div>
+</div>
+
+<!-- Menu Bar Dropdowns -->
+<div class="menu-dropdown" id="menu-file">
+  <div class="menu-dropdown-item" onclick="NoctOS.Apps.Notes.open()">New Note <span class="shortcut">⌘N</span></div>
+  <div class="menu-dropdown-item" onclick="NoctOS.Apps.Finder.open()">New Finder Window <span class="shortcut">⌘⇧N</span></div>
+  <div class="menu-dropdown-divider"></div>
+  <div class="menu-dropdown-item">Close Window <span class="shortcut">⌘W</span></div>
+</div>
+<div class="menu-dropdown" id="menu-edit">
+  <div class="menu-dropdown-item">Undo <span class="shortcut">⌘Z</span></div>
+  <div class="menu-dropdown-item">Redo <span class="shortcut">⌘⇧Z</span></div>
+  <div class="menu-dropdown-divider"></div>
+  <div class="menu-dropdown-item">Cut <span class="shortcut">⌘X</span></div>
+  <div class="menu-dropdown-item">Copy <span class="shortcut">⌘C</span></div>
+  <div class="menu-dropdown-item">Paste <span class="shortcut">⌘V</span></div>
+  <div class="menu-dropdown-item">Select All <span class="shortcut">⌘A</span></div>
+</div>
+<div class="menu-dropdown" id="menu-view">
+  <div class="menu-dropdown-item">Enter Fullscreen <span class="shortcut">⌃⌘F</span></div>
+  <div class="menu-dropdown-divider"></div>
+  <div class="menu-dropdown-item" onclick="NoctOS.MissionControl.open()">Mission Control <span class="shortcut">⌃↑</span></div>
+</div>
+<div class="menu-dropdown" id="menu-window">
+  <div class="menu-dropdown-item" onclick="NoctOS.WindowManager.minimizeAll()">Minimize All</div>
+  <div class="menu-dropdown-divider"></div>
+  <div class="menu-dropdown-item" id="window-list-container"></div>
+</div>
+<div class="menu-dropdown" id="menu-help">
+  <div class="menu-dropdown-item" onclick="NoctOS.Apps.About.open()">About NoctOS</div>
+  <div class="menu-dropdown-item">NoctOS Help</div>
+  <div class="menu-dropdown-divider"></div>
+  <div class="menu-dropdown-item">Keyboard Shortcuts</div>
+</div>
+
+<!-- ═══════════ DESKTOP ═══════════ -->
+<div id="desktop">
+  <!-- Desktop icons -->
+  <div class="desktop-icon" style="left:16px; top:16px" ondblclick="NoctOS.Apps.Finder.open()">
+    <svg class="icon-img" viewBox="0 0 52 52"><rect x="6" y="14" width="40" height="28" rx="3" fill="#5b9ef6"/><rect x="8" y="10" width="36" height="8" rx="2" fill="#4a8ae6"/><rect x="16" y="24" width="20" height="2" rx="1" fill="rgba(255,255,255,0.3)"/><rect x="16" y="29" width="14" height="2" rx="1" fill="rgba(255,255,255,0.3)"/></svg>
+    <span class="icon-label">Macintosh HD</span>
+  </div>
+  <div class="desktop-icon" style="left:16px; top:112px" ondblclick="NoctOS.Apps.Finder.open()">
+    <svg class="icon-img" viewBox="0 0 52 52"><path d="M8 14h14l4 4h18a2 2 0 012 2v20a2 2 0 01-2 2H8a2 2 0 01-2-2V16a2 2 0 012-2z" fill="#5b9ef6"/><path d="M6 22h40v18a2 2 0 01-2 2H8a2 2 0 01-2-2V22z" fill="#4a8ae6"/></svg>
+    <span class="icon-label">Projects</span>
+  </div>
+  <div class="desktop-icon" style="left:16px; top:208px" ondblclick="NoctOS.Apps.Notes.open()">
+    <svg class="icon-img" viewBox="0 0 52 52"><rect x="10" y="6" width="32" height="40" rx="3" fill="#f0f0f5"/><rect x="14" y="14" width="24" height="2" rx="1" fill="#ccc"/><rect x="14" y="20" width="20" height="2" rx="1" fill="#ccc"/><rect x="14" y="26" width="22" height="2" rx="1" fill="#ccc"/><rect x="14" y="32" width="16" height="2" rx="1" fill="#ccc"/></svg>
+    <span class="icon-label">README.txt</span>
+  </div>
+</div>
+
+<!-- ═══════════ DOCK ═══════════ -->
+<div id="dock-container">
+  <div id="dock"></div>
+</div>
+
+<!-- ═══════════ CONTEXT MENU ═══════════ -->
+<div id="context-menu">
+  <div class="ctx-item" onclick="NoctOS.Apps.Notes.open()">New Note</div>
+  <div class="ctx-item">New Folder</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="NoctOS.Desktop.cycleWallpaper()">Change Wallpaper</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="NoctOS.Apps.About.open()">About NoctOS</div>
+</div>
+
+<!-- ═══════════ SNAP GHOST ═══════════ -->
+<div id="snap-ghost"></div>
+
+<!-- ═══════════ SPOTLIGHT ═══════════ -->
+<div id="spotlight-overlay">
+  <div id="spotlight-panel">
+    <div id="spotlight-input-row">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85zm-5.242.156a5 5 0 110-10 5 5 0 010 10z"/></svg>
+      <input type="text" id="spotlight-input" placeholder="Spotlight Search" autocomplete="off">
+    </div>
+    <div id="spotlight-results"></div>
+  </div>
+</div>
+
+<!-- ═══════════ NOTIFICATION CENTER ═══════════ -->
+<div id="notif-center"></div>
+
+<!-- ═══════════ APP SWITCHER ═══════════ -->
+<div id="app-switcher">
+  <div id="app-switcher-panel"></div>
+</div>
+
+<!-- ═══════════ MISSION CONTROL ═══════════ -->
+<div id="mission-control" onclick="NoctOS.MissionControl.close()">
+  <div id="mc-grid"></div>
+</div>
+
+<!-- ═══════════ SCREENSAVER ═══════════ -->
+<div id="screensaver">
+  <div id="screensaver-time"></div>
+</div>
+
+<!-- ═══════════ CALENDAR DROPDOWN ═══════════ -->
+<div id="calendar-dropdown"></div>
+
+<!-- ═══════════ DOCK CONTEXT MENU ═══════════ -->
+<div class="dock-context-menu" id="dock-ctx-menu">
+  <div class="dock-ctx-item" id="dock-ctx-open">Open</div>
+  <div class="dock-ctx-item" id="dock-ctx-hide">Hide</div>
+  <div class="dock-ctx-divider"></div>
+  <div class="dock-ctx-item" id="dock-ctx-quit">Quit</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     JAVASCRIPT — NoctOS Core
+     ═══════════════════════════════════════════════════════ -->
+<script>
+const NoctOS = {
+  /* ─── STATE ─── */
+  state: {
+    windows: {},
+    activeWindow: null,
+    nextZ: 100,
+    wallpaper: 'base',
+    accent: '#3b82f6',
+    openApps: new Set(),
+    wallpaperIndex: 0,
+    idleTimer: null,
+    screensaverActive: false,
+  },
+
+  /* ═══════════════════════════════════════════
+     BOOT SEQUENCE
+     ═══════════════════════════════════════════ */
+  boot() {
+    const logo = document.getElementById('boot-logo');
+    const text = document.getElementById('boot-text');
+    const progress = document.getElementById('boot-progress');
+    const fill = document.getElementById('boot-progress-fill');
+    const screen = document.getElementById('boot-screen');
+
+    setTimeout(() => logo.classList.add('visible'), 100);
+    setTimeout(() => text.classList.add('visible'), 1300);
+    setTimeout(() => { progress.classList.add('visible'); fill.style.width = '100%'; }, 2100);
+    setTimeout(() => { screen.classList.add('fade-out'); }, 2700);
+    setTimeout(() => { screen.style.display = 'none'; this.init(); }, 3100);
+  },
+
+  /* ═══════════════════════════════════════════
+     INITIALIZATION
+     ═══════════════════════════════════════════ */
+  init() {
+    this.MenuBar.init();
+    this.DockManager.init();
+    this.Desktop.init();
+    this.Shortcuts.init();
+    this.IdleTracker.init();
+  },
+
+  /* ═══════════════════════════════════════════
+     MENU BAR
+     ═══════════════════════════════════════════ */
+  MenuBar: {
+    activeMenu: null,
+    calendarOpen: false,
+    init() {
+      this.updateClock();
+      setInterval(() => this.updateClock(), 1000);
+      document.querySelectorAll('.menu-item[data-menu]').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleMenu(item.dataset.menu, item);
+        });
+      });
+      document.getElementById('menu-logo').addEventListener('click', () => NoctOS.Apps.About.open());
+      document.getElementById('clock-display').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleCalendar();
+      });
+      document.addEventListener('click', () => { this.closeAllMenus(); this.closeCalendar(); });
+    },
+    updateClock() {
+      const now = new Date();
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const h = now.getHours(); const m = now.getMinutes();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      document.getElementById('clock-display').textContent =
+        `${days[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()}   ${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+    },
+    toggleMenu(name, el) {
+      this.closeAllMenus();
+      const dd = document.getElementById('menu-' + name);
+      if (dd) { dd.classList.toggle('visible'); this.activeMenu = dd; }
+    },
+    closeAllMenus() {
+      document.querySelectorAll('.menu-dropdown').forEach(d => d.classList.remove('visible'));
+      this.activeMenu = null;
+    },
+    setActiveApp(name) {
+      document.getElementById('active-app-name').textContent = name || 'NoctOS';
+    },
+    toggleCalendar() {
+      const cal = document.getElementById('calendar-dropdown');
+      if (this.calendarOpen) { cal.classList.remove('visible'); this.calendarOpen = false; return; }
+      this.calendarOpen = true;
+      const now = new Date();
+      let year = now.getFullYear(), month = now.getMonth();
+      const render = () => {
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const daysInPrev = new Date(year, month, 0).getDate();
+        let html = `<div class="cal-header"><button class="cal-nav" id="cal-prev">‹</button><span class="cal-month">${months[month]} ${year}</span><button class="cal-nav" id="cal-next">›</button></div>`;
+        html += '<div class="cal-weekdays">';
+        ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d => html += `<div>${d}</div>`);
+        html += '</div><div class="cal-days">';
+        for (let i = 0; i < firstDay; i++) html += `<div class="cal-day other-month">${daysInPrev - firstDay + i + 1}</div>`;
+        for (let d = 1; d <= daysInMonth; d++) {
+          const isToday = d === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+          html += `<div class="cal-day${isToday ? ' today' : ''}">${d}</div>`;
+        }
+        const remaining = 42 - (firstDay + daysInMonth);
+        for (let i = 1; i <= remaining; i++) html += `<div class="cal-day other-month">${i}</div>`;
+        html += '</div>';
+        cal.innerHTML = html;
+        document.getElementById('cal-prev').addEventListener('click', (e) => { e.stopPropagation(); month--; if (month < 0) { month = 11; year--; } render(); });
+        document.getElementById('cal-next').addEventListener('click', (e) => { e.stopPropagation(); month++; if (month > 11) { month = 0; year++; } render(); });
+      };
+      render();
+      cal.classList.add('visible');
+      cal.addEventListener('click', e => e.stopPropagation());
+    },
+    closeCalendar() {
+      document.getElementById('calendar-dropdown').classList.remove('visible');
+      this.calendarOpen = false;
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     DOCK MANAGER
+     ═══════════════════════════════════════════ */
+  DockManager: {
+    apps: [
+      { name: 'Finder', icon: 'finder', color: '#5b9ef6' },
+      { name: 'Safari', icon: 'safari', color: '#4a8ae6' },
+      { name: 'Terminal', icon: 'terminal', color: '#1a1a2e' },
+      { name: 'Notes', icon: 'notes', color: '#f5c842' },
+      { name: 'Calculator', icon: 'calculator', color: '#333' },
+      { name: 'Settings', icon: 'settings', color: '#6b7280' },
+      { name: 'Trash', icon: 'trash', color: '#9ca3af' },
+    ],
+    magnification: true,
+    iconSize: 56,
+    dockEl: null,
+    itemEls: [],
+    init() {
+      this.dockEl = document.getElementById('dock');
+      this.render();
+      this.dockEl.addEventListener('mousemove', (e) => this.updateMagnification(e));
+      this.dockEl.addEventListener('mouseleave', () => this.resetMagnification());
+    },
+    render() {
+      this.dockEl.innerHTML = '';
+      this.itemEls = [];
+      this.apps.forEach((app, i) => {
+        const item = document.createElement('div');
+        item.className = 'dock-item';
+        item.dataset.app = app.name;
+        item.innerHTML = `
+          <div class="dock-label">${app.name}</div>
+          <div class="dock-icon">${this.getIconSVG(app.icon, app.color)}</div>
+          <div class="dock-running"></div>
+        `;
+        item.addEventListener('click', () => this.handleDockClick(app.name));
+        item.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); this.showContextMenu(e, app.name); });
+        this.dockEl.appendChild(item);
+        this.itemEls.push(item);
+      });
+    },
+    getIconSVG(type, color) {
+      const icons = {
+        finder: `<svg viewBox="0 0 56 56" width="56" height="56"><rect width="56" height="56" rx="13" fill="${color}"/><path d="M16 20h10l3 3h11a1.5 1.5 0 011.5 1.5v13a1.5 1.5 0 01-1.5 1.5H16a1.5 1.5 0 01-1.5-1.5v-13A1.5 1.5 0 0116 20z" fill="rgba(255,255,255,0.25)"/><path d="M14.5 27h27v11.5a1.5 1.5 0 01-1.5 1.5H16a1.5 1.5 0 01-1.5-1.5V27z" fill="rgba(255,255,255,0.35)"/><rect x="20" y="31" width="16" height="2" rx="1" fill="rgba(255,255,255,0.4)"/><rect x="20" y="35" width="10" height="2" rx="1" fill="rgba(255,255,255,0.4)"/></svg>`,
+        safari: `<svg viewBox="0 0 56 56" width="56" height="56"><rect width="56" height="56" rx="13" fill="#2563eb"/><circle cx="28" cy="28" r="18" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/><polygon points="28,12 30,26 44,28 30,30 28,44 26,30 12,28 26,26" fill="rgba(255,255,255,0.8)"/><circle cx="28" cy="28" r="3" fill="white"/></svg>`,
+        terminal: `<svg viewBox="0 0 56 56" width="56" height="56"><rect width="56" height="56" rx="13" fill="${color}"/><rect x="6" y="6" width="44" height="44" rx="8" fill="#0d0d14"/><path d="M16 22l8 6-8 6" stroke="var(--accent)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="28" y1="34" x2="38" y2="34" stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-linecap="round"/></svg>`,
+        notes: `<svg viewBox="0 0 56 56" width="56" height="56"><rect width="56" height="56" rx="13" fill="${color}"/><rect x="12" y="8" width="32" height="40" rx="4" fill="rgba(255,255,255,0.9)"/><rect x="17" y="16" width="22" height="2" rx="1" fill="#bbb"/><rect x="17" y="22" width="18" height="2" rx="1" fill="#bbb"/><rect x="17" y="28" width="20" height="2" rx="1" fill="#bbb"/><rect x="17" y="34" width="14" height="2" rx="1" fill="#bbb"/></svg>`,
+        calculator: `<svg viewBox="0 0 56 56" width="56" height="56"><rect width="56" height="56" rx="13" fill="#1f2937"/><rect x="10" y="8" width="36" height="12" rx="3" fill="#111827"/><rect x="10" y="24" width="8" height="8" rx="4" fill="rgba(255,255,255,0.15)"/><rect x="24" y="24" width="8" height="8" rx="4" fill="rgba(255,255,255,0.15)"/><rect x="38" y="24" width="8" height="8" rx="4" fill="var(--accent)"/><rect x="10" y="36" width="8" height="8" rx="4" fill="rgba(255,255,255,0.15)"/><rect x="24" y="36" width="8" height="8" rx="4" fill="rgba(255,255,255,0.15)"/><rect x="38" y="36" width="8" height="8" rx="4" fill="var(--accent)"/></svg>`,
+        settings: `<svg viewBox="0 0 56 56" width="56" height="56"><rect width="56" height="56" rx="13" fill="${color}"/><circle cx="28" cy="28" r="10" fill="none" stroke="white" stroke-width="2.5"/><circle cx="28" cy="28" r="4" fill="white"/><line x1="28" y1="6" x2="28" y2="16" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="28" y1="40" x2="28" y2="50" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="6" y1="28" x2="16" y2="28" stroke="white" stroke-width="2.5" stroke-linecap="round"/><line x1="40" y1="28" x2="50" y2="28" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>`,
+        trash: `<svg viewBox="0 0 56 56" width="56" height="56"><rect width="56" height="56" rx="13" fill="${color}"/><path d="M18 20h20l-2 24a2 2 0 01-2 2H22a2 2 0 01-2-2L18 20z" fill="none" stroke="white" stroke-width="2"/><line x1="15" y1="20" x2="41" y2="20" stroke="white" stroke-width="2" stroke-linecap="round"/><path d="M23 20V16a3 3 0 013-3h4a3 3 0 013 3v4" fill="none" stroke="white" stroke-width="2"/></svg>`,
+      };
+      return icons[type] || '';
+    },
+    updateMagnification(e) {
+      if (!this.magnification) return;
+      const dockRect = this.dockEl.getBoundingClientRect();
+      const mouseX = e.clientX;
+      this.itemEls.forEach(item => {
+        const icon = item.querySelector('.dock-icon');
+        const rect = item.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const distance = Math.abs(mouseX - centerX);
+        const maxScale = 1.6;
+        const radius = 100;
+        const scale = 1 + (maxScale - 1) * Math.max(0, 1 - distance / radius);
+        icon.style.transform = `scale(${scale})`;
+      });
+    },
+    resetMagnification() {
+      this.itemEls.forEach(item => {
+        item.querySelector('.dock-icon').style.transform = 'scale(1)';
+      });
+    },
+    handleDockClick(appName) {
+      if (appName === 'Trash') return;
+      const appKey = appName;
+      const state = NoctOS.state;
+      if (!state.openApps.has(appKey)) {
+        NoctOS.Apps[appKey]?.open();
+      } else {
+        const wins = Object.values(state.windows).filter(w => w.app === appKey);
+        if (wins.length > 0) {
+          const topWin = wins.reduce((a, b) => (a.zIndex > b.zIndex ? a : b));
+          if (state.activeWindow === topWin.id) {
+            this.bounce(appName);
+          } else {
+            NoctOS.WindowManager.focus(topWin.id);
+          }
+        }
+      }
+    },
+    bounce(appName) {
+      const item = this.itemEls.find(el => el.dataset.app === appName);
+      if (item) {
+        item.classList.remove('bouncing');
+        void item.offsetWidth;
+        item.classList.add('bouncing');
+        setTimeout(() => item.classList.remove('bouncing'), 600);
+      }
+    },
+    setRunning(appName, running) {
+      const item = this.itemEls.find(el => el.dataset.app === appName);
+      if (item) item.classList.toggle('running', running);
+    },
+    showContextMenu(e, appName) {
+      const menu = document.getElementById('dock-ctx-menu');
+      menu.style.left = e.clientX + 'px';
+      menu.style.top = (e.clientY - 80) + 'px';
+      menu.classList.add('visible');
+      const isRunning = NoctOS.state.openApps.has(appName);
+      document.getElementById('dock-ctx-open').onclick = () => { menu.classList.remove('visible'); NoctOS.Apps[appName]?.open(); };
+      document.getElementById('dock-ctx-hide').onclick = () => { menu.classList.remove('visible'); NoctOS.Apps[appName]?.open(); };
+      document.getElementById('dock-ctx-quit').onclick = () => {
+        menu.classList.remove('visible');
+        Object.values(NoctOS.state.windows).filter(w => w.app === appName).forEach(w => NoctOS.WindowManager.close(w.id));
+      };
+      e.stopPropagation();
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     DESKTOP
+     ═══════════════════════════════════════════ */
+  Desktop: {
+    init() {
+      const desktop = document.getElementById('desktop');
+      desktop.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (e.target.closest('.window') || e.target.closest('.desktop-icon')) return;
+        const ctx = document.getElementById('context-menu');
+        ctx.style.left = e.clientX + 'px';
+        ctx.style.top = e.clientY + 'px';
+        ctx.classList.add('visible');
+      });
+      document.addEventListener('click', () => document.getElementById('context-menu').classList.remove('visible'));
+      document.addEventListener('click', () => {
+        document.querySelectorAll('.dock-context-menu').forEach(m => m.classList.remove('visible'));
+      });
+    },
+    cycleWallpaper() {
+      const wallpapers = ['', 'wallpaper-nebula', 'wallpaper-aurora', 'wallpaper-midnight'];
+      const names = ['base', 'nebula', 'aurora', 'midnight'];
+      NoctOS.state.wallpaperIndex = (NoctOS.state.wallpaperIndex + 1) % wallpapers.length;
+      const desktop = document.getElementById('desktop');
+      wallpapers.forEach(w => { if (w) desktop.classList.remove(w); });
+      if (wallpapers[NoctOS.state.wallpaperIndex]) desktop.classList.add(wallpapers[NoctOS.state.wallpaperIndex]);
+      NoctOS.state.wallpaper = names[NoctOS.state.wallpaperIndex];
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     WINDOW MANAGER
+     ═══════════════════════════════════════════ */
+  WindowManager: {
+    create(appName, options = {}) {
+      const id = 'win-' + Date.now();
+      const w = options.width || 600;
+      const h = options.height || 400;
+      const x = options.x ?? Math.max(80, 120 + Object.keys(NoctOS.state.windows).length * 30);
+      const y = options.y ?? Math.max(40, 60 + Object.keys(NoctOS.state.windows).length * 30);
+      const title = options.title || appName;
+      const resizable = options.resizable !== false;
+      const noTrafficLights = options.noTrafficLights || false;
+
+      const win = document.createElement('div');
+      win.className = 'window anim-open';
+      win.id = id;
+      win.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;z-index:${NoctOS.state.nextZ++}`;
+
+      let tlHTML = '';
+      if (!noTrafficLights) {
+        tlHTML = `
+          <div class="traffic-lights">
+            <div class="traffic-light tl-red" data-action="close"><svg viewBox="0 0 7 7"><line x1="1" y1="1" x2="6" y2="6" stroke="#4a0000" stroke-width="1.2"/><line x1="6" y1="1" x2="1" y2="6" stroke="#4a0000" stroke-width="1.2"/></svg></div>
+            <div class="traffic-light tl-yellow" data-action="minimize"><svg viewBox="0 0 7 7"><line x1="1" y1="3.5" x2="6" y2="3.5" stroke="#995700" stroke-width="1.2"/></svg></div>
+            <div class="traffic-light tl-green" data-action="fullscreen"><svg viewBox="0 0 7 7"><polyline points="1,5 1,1 5,1" fill="none" stroke="#006500" stroke-width="1.1"/><polyline points="6,2 6,6 2,6" fill="none" stroke="#006500" stroke-width="1.1"/></svg></div>
+          </div>`;
+      }
+
+      win.innerHTML = `
+        <div class="window-titlebar" data-draggable="true">
+          ${tlHTML}
+          <span class="window-title">${title}</span>
+        </div>
+        <div class="window-content" id="content-${id}"></div>
+        ${resizable ? '<div class="window-resize"></div>' : ''}
+      `;
+
+      document.getElementById('desktop').appendChild(win);
+
+      NoctOS.state.windows[id] = { element: win, app: appName, zIndex: parseInt(win.style.zIndex), minimized: false, fullscreen: false, prevBounds: null };
+
+      // Traffic light events
+      win.querySelectorAll('.traffic-light').forEach(tl => {
+        tl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const action = tl.dataset.action;
+          if (action === 'close') NoctOS.WindowManager.close(id);
+          else if (action === 'minimize') NoctOS.WindowManager.minimize(id);
+          else if (action === 'fullscreen') NoctOS.WindowManager.toggleFullscreen(id);
+        });
+      });
+
+      // Focus on click
+      win.addEventListener('mousedown', () => NoctOS.WindowManager.focus(id));
+
+      // Drag
+      const titlebar = win.querySelector('.window-titlebar');
+      if (titlebar) this.startDrag(titlebar, id);
+
+      // Resize
+      const resizeHandle = win.querySelector('.window-resize');
+      if (resizeHandle && resizable) this.startResize(resizeHandle, id);
+
+      NoctOS.state.openApps.add(appName);
+      NoctOS.DockManager.setRunning(appName, true);
+      NoctOS.MenuBar.setActiveApp(title);
+      this.focus(id);
+
+      setTimeout(() => win.classList.remove('anim-open'), 200);
+
+      // Snap ghost
+      win.addEventListener('dragover', e => e.preventDefault());
+
+      return id;
+    },
+
+    focus(id) {
+      const w = NoctOS.state.windows[id];
+      if (!w) return;
+      w.zIndex = NoctOS.state.nextZ++;
+      if (w.zIndex > 9990) NoctOS.state.nextZ = 100;
+      w.element.style.zIndex = w.zIndex;
+      NoctOS.state.activeWindow = id;
+      NoctOS.MenuBar.setActiveApp(w.element.querySelector('.window-title')?.textContent || w.app);
+    },
+
+    close(id) {
+      const w = NoctOS.state.windows[id];
+      if (!w) return;
+      w.element.classList.add('anim-close');
+      setTimeout(() => {
+        w.element.remove();
+        delete NoctOS.state.windows[id];
+        const remaining = Object.values(NoctOS.state.windows).filter(win => win.app === w.app);
+        if (remaining.length === 0) {
+          NoctOS.state.openApps.delete(w.app);
+          NoctOS.DockManager.setRunning(w.app, false);
+        }
+        if (NoctOS.state.activeWindow === id) {
+          const allWins = Object.entries(NoctOS.state.windows);
+          if (allWins.length > 0) {
+            const topWin = allWins.reduce((a, b) => (a[1].zIndex > b[1].zIndex ? a : b));
+            this.focus(topWin[0]);
+          } else {
+            NoctOS.state.activeWindow = null;
+            NoctOS.MenuBar.setActiveApp('NoctOS');
+          }
+        }
+      }, 120);
+    },
+
+    minimize(id) {
+      const w = NoctOS.state.windows[id];
+      if (!w) return;
+      w.element.classList.add('anim-minimize');
+      w.minimized = true;
+      setTimeout(() => {
+        w.element.style.display = 'none';
+        w.element.classList.remove('anim-minimize');
+        NoctOS.DockManager.bounce(w.app);
+      }, 200);
+      if (NoctOS.state.activeWindow === id) {
+        NoctOS.state.activeWindow = null;
+        NoctOS.MenuBar.setActiveApp('NoctOS');
+      }
+    },
+
+    restore(id) {
+      const w = NoctOS.state.windows[id];
+      if (!w || !w.minimized) return;
+      w.minimized = false;
+      w.element.style.display = '';
+      w.element.classList.add('anim-open');
+      this.focus(id);
+      setTimeout(() => w.element.classList.remove('anim-open'), 200);
+    },
+
+    toggleFullscreen(id) {
+      const w = NoctOS.state.windows[id];
+      if (!w) return;
+      const desktop = document.getElementById('desktop');
+      const dockContainer = document.getElementById('dock-container');
+      if (w.fullscreen) {
+        if (w.prevBounds) {
+          w.element.style.left = w.prevBounds.left + 'px';
+          w.element.style.top = w.prevBounds.top + 'px';
+          w.element.style.width = w.prevBounds.width + 'px';
+          w.element.style.height = w.prevBounds.height + 'px';
+        }
+        w.fullscreen = false;
+        dockContainer.style.display = '';
+      } else {
+        w.prevBounds = {
+          left: w.element.offsetLeft, top: w.element.offsetTop,
+          width: w.element.offsetWidth, height: w.element.offsetHeight
+        };
+        w.element.style.left = '0';
+        w.element.style.top = '0';
+        w.element.style.width = '100vw';
+        w.element.style.height = desktop.offsetHeight + 'px';
+        w.element.style.borderRadius = '0';
+        w.fullscreen = true;
+        dockContainer.style.display = 'none';
+      }
+    },
+
+    minimizeAll() {
+      Object.keys(NoctOS.state.windows).forEach(id => this.minimize(id));
+    },
+
+    startDrag(titlebar, id) {
+      const w = NoctOS.state.windows[id];
+      if (!w) return;
+      let dragging = false, startX, startY, origX, origY;
+      const ghost = document.getElementById('snap-ghost');
+
+      titlebar.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.traffic-light')) return;
+        dragging = true;
+        startX = e.clientX; startY = e.clientY;
+        origX = w.element.offsetLeft; origY = w.element.offsetTop;
+        if (w.fullscreen) {
+          w.prevBounds = w.prevBounds || { width: 600, height: 400 };
+          w.element.style.borderRadius = 'var(--radius-window)';
+          w.element.style.width = w.prevBounds.width + 'px';
+          w.element.style.height = w.prevBounds.height + 'px';
+          w.fullscreen = false;
+          document.getElementById('dock-container').style.display = '';
+          origX = e.clientX - w.prevBounds.width / 2;
+          origY = 4;
+          w.element.style.left = origX + 'px';
+          w.element.style.top = origY + 'px';
+        }
+        document.body.style.cursor = 'grabbing';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        w.element.style.left = (origX + dx) + 'px';
+        w.element.style.top = Math.max(28, origY + dy) + 'px';
+
+        // Snap zones
+        const desktopH = document.getElementById('desktop').offsetHeight;
+        if (e.clientY <= 30) {
+          ghost.style.display = 'block';
+          ghost.style.left = '8px'; ghost.style.top = '32px';
+          ghost.style.width = 'calc(100vw - 16px)'; ghost.style.height = (desktopH - 8) + 'px';
+          ghost.dataset.zone = 'full';
+        } else if (e.clientX <= 10) {
+          ghost.style.display = 'block';
+          ghost.style.left = '4px'; ghost.style.top = '32px';
+          ghost.style.width = 'calc(50vw - 8px)'; ghost.style.height = (desktopH - 8) + 'px';
+          ghost.dataset.zone = 'left';
+        } else if (e.clientX >= window.innerWidth - 10) {
+          ghost.style.display = 'block';
+          ghost.style.left = 'calc(50vw + 4px)'; ghost.style.top = '32px';
+          ghost.style.width = 'calc(50vw - 8px)'; ghost.style.height = (desktopH - 8) + 'px';
+          ghost.dataset.zone = 'right';
+        } else {
+          ghost.style.display = 'none';
+          ghost.dataset.zone = '';
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.cursor = '';
+        if (ghost.dataset.zone) {
+          const desktopH = document.getElementById('desktop').offsetHeight;
+          if (ghost.dataset.zone === 'full') {
+            this.toggleFullscreen(id);
+          } else if (ghost.dataset.zone === 'left') {
+            w.element.style.left = '4px'; w.element.style.top = '32px';
+            w.element.style.width = 'calc(50vw - 8px)'; w.element.style.height = (desktopH - 8) + 'px';
+          } else if (ghost.dataset.zone === 'right') {
+            w.element.style.left = 'calc(50vw + 4px)'; w.element.style.top = '32px';
+            w.element.style.width = 'calc(50vw - 8px)'; w.element.style.height = (desktopH - 8) + 'px';
+          }
+        }
+        ghost.style.display = 'none';
+        ghost.dataset.zone = '';
+      });
+    },
+
+    startResize(handle, id) {
+      const w = NoctOS.state.windows[id];
+      if (!w) return;
+      let resizing = false, startX, startY, origW, origH;
+
+      handle.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        resizing = true;
+        startX = e.clientX; startY = e.clientY;
+        origW = w.element.offsetWidth; origH = w.element.offsetHeight;
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!resizing) return;
+        const newW = Math.max(300, origW + (e.clientX - startX));
+        const newH = Math.max(200, origH + (e.clientY - startY));
+        w.element.style.width = newW + 'px';
+        w.element.style.height = newH + 'px';
+      });
+
+      document.addEventListener('mouseup', () => { resizing = false; });
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     SPOTLIGHT SEARCH
+     ═══════════════════════════════════════════ */
+  Spotlight: {
+    open() {
+      document.getElementById('spotlight-overlay').classList.add('visible');
+      const input = document.getElementById('spotlight-input');
+      input.value = '';
+      input.focus();
+      this.renderResults('');
+    },
+    close() {
+      document.getElementById('spotlight-overlay').classList.remove('visible');
+    },
+    renderResults(query) {
+      const allApps = [
+        { name: 'Finder', app: 'Finder', icon: '📂', cat: 'Application' },
+        { name: 'Safari', app: 'Safari', icon: '🧭', cat: 'Application' },
+        { name: 'Terminal', app: 'Terminal', icon: '>_', cat: 'Application' },
+        { name: 'Notes', app: 'Notes', icon: '📝', cat: 'Application' },
+        { name: 'Calculator', app: 'Calculator', icon: '🔢', cat: 'Application' },
+        { name: 'Settings', app: 'Settings', icon: '⚙️', cat: 'Application' },
+      ];
+      const files = [
+        { name: 'README.txt', app: 'Notes', icon: '📄', cat: 'Document' },
+        { name: 'Projects', app: 'Finder', icon: '📁', cat: 'Folder' },
+        { name: 'Macintosh HD', app: 'Finder', icon: '💾', cat: 'Device' },
+      ];
+      const q = query.toLowerCase().trim();
+      const matchedApps = q ? allApps.filter(a => a.name.toLowerCase().includes(q)) : allApps;
+      const matchedFiles = q ? files.filter(f => f.name.toLowerCase().includes(q)) : [];
+
+      let html = '';
+      if (matchedApps.length > 0) {
+        html += '<div class="spotlight-section-label">Applications</div>';
+        matchedApps.forEach((a, i) => {
+          html += `<div class="spotlight-result${i === 0 && q ? ' selected' : ''}" data-app="${a.name}"><div class="spotlight-result-icon">${a.icon}</div><div class="spotlight-result-name">${a.name}</div><div class="spotlight-result-cat">${a.cat}</div></div>`;
+        });
+      }
+      if (matchedFiles.length > 0) {
+        html += '<div class="spotlight-section-label">Files</div>';
+        matchedFiles.forEach(f => {
+          html += `<div class="spotlight-result" data-app="${f.app}"><div class="spotlight-result-icon">${f.icon}</div><div class="spotlight-result-name">${f.name}</div><div class="spotlight-result-cat">${f.cat}</div></div>`;
+        });
+      }
+      if (q && matchedApps.length === 0 && matchedFiles.length === 0) {
+        html = '<div class="spotlight-section-label" style="padding:16px;text-align:center">No results found</div>';
+      }
+      document.getElementById('spotlight-results').innerHTML = html;
+      document.querySelectorAll('.spotlight-result').forEach(el => {
+        el.addEventListener('click', () => {
+          const appName = el.dataset.app;
+          this.close();
+          NoctOS.Apps[appName]?.open();
+        });
+      });
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     NOTIFICATION CENTER
+     ═══════════════════════════════════════════ */
+  NotificationCenter: {
+    open() {
+      const nc = document.getElementById('notif-center');
+      if (nc.classList.contains('open')) { nc.classList.remove('open'); return; }
+      const now = new Date();
+      const hours = now.getHours();
+      let greeting = hours < 12 ? 'Good morning' : hours < 18 ? 'Good afternoon' : 'Good evening';
+      nc.innerHTML = `
+        <div class="notif-section-title">Today</div>
+        <div class="notif-weather">
+          <div class="notif-weather-icon">☀️</div>
+          <div><div class="notif-weather-temp">72°</div><div class="notif-weather-desc">Sunny • Cupertino</div></div>
+        </div>
+        <div class="notif-card">
+          <div class="notif-card-title">${greeting} 👋</div>
+          <div class="notif-card-body">Welcome back to NoctOS. You have ${Object.keys(NoctOS.state.windows).length} windows open.</div>
+          <div class="notif-card-time">Just now</div>
+        </div>
+        <div class="notif-card">
+          <div class="notif-card-title">System Update Available</div>
+          <div class="notif-card-body">NoctOS 1.1 is ready to install with new features and improvements.</div>
+          <div class="notif-card-time">2 hours ago</div>
+        </div>
+        <div class="notif-card">
+          <div class="notif-card-title">Backup Complete</div>
+          <div class="notif-card-body">Your notes and settings have been backed up successfully.</div>
+          <div class="notif-card-time">Yesterday</div>
+        </div>
+        <div class="notif-section-title">Calendar</div>
+        <div class="notif-card">
+          <div class="notif-card-title">📅 ${now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+          <div class="notif-card-body">No upcoming events today.</div>
+        </div>
+      `;
+      nc.classList.add('open');
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     MISSION CONTROL
+     ═══════════════════════════════════════════ */
+  MissionControl: {
+    open() {
+      const mc = document.getElementById('mission-control');
+      const grid = document.getElementById('mc-grid');
+      grid.innerHTML = '';
+      const wins = Object.entries(NoctOS.state.windows);
+      if (wins.length === 0) { mc.classList.add('visible'); grid.innerHTML = '<div style="color:var(--text-secondary);font-size:16px">No open windows</div>'; return; }
+      wins.forEach(([id, w]) => {
+        const tile = document.createElement('div');
+        tile.className = 'mc-tile';
+        const scale = Math.min(300 / w.element.offsetWidth, 200 / w.element.offsetHeight, 1);
+        tile.innerHTML = `<div style="width:${w.element.offsetWidth * scale}px;height:${w.element.offsetHeight * scale}px;background:var(--bg-window);border-radius:8px;overflow:hidden"><div style="transform:scale(${scale});transform-origin:top left;width:${w.element.offsetWidth}px;height:${w.element.offsetHeight}px">${w.element.querySelector('.window-content').innerHTML}</div></div><div class="mc-tile-title">${w.element.querySelector('.window-title')?.textContent || w.app}</div>`;
+        tile.addEventListener('click', (e) => {
+          e.stopPropagation();
+          NoctOS.MissionControl.close();
+          NoctOS.WindowManager.focus(id);
+        });
+        grid.appendChild(tile);
+      });
+      mc.classList.add('visible');
+    },
+    close() { document.getElementById('mission-control').classList.remove('visible'); }
+  },
+
+  /* ═══════════════════════════════════════════
+     KEYBOARD SHORTCUTS
+     ═══════════════════════════════════════════ */
+  Shortcuts: {
+    init() {
+      document.addEventListener('keydown', (e) => {
+        const cmd = e.metaKey || e.ctrlKey;
+        // Cmd+Space → Spotlight
+        if (cmd && e.code === 'Space') { e.preventDefault(); NoctOS.Spotlight.toggle(); }
+        // Cmd+W → Close
+        if (cmd && e.key === 'w') { e.preventDefault(); if (NoctOS.state.activeWindow) NoctOS.WindowManager.close(NoctOS.state.activeWindow); }
+        // Cmd+M → Minimize
+        if (cmd && e.key === 'm') { e.preventDefault(); if (NoctOS.state.activeWindow) NoctOS.WindowManager.minimize(NoctOS.state.activeWindow); }
+        // Cmd+H → Hide
+        if (cmd && e.key === 'h') { e.preventDefault(); if (NoctOS.state.activeWindow) { const w = NoctOS.state.windows[NoctOS.state.activeWindow]; if (w) w.element.style.opacity = '0'; } }
+        // Escape → Close Spotlight / context menus
+        if (e.key === 'Escape') {
+          NoctOS.Spotlight.close();
+          document.getElementById('context-menu').classList.remove('visible');
+          document.getElementById('dock-ctx-menu').classList.remove('visible');
+          NoctOS.MissionControl.close();
+          document.getElementById('notif-center').classList.remove('open');
+          NoctOS.MenuBar.closeAllMenus();
+          NoctOS.MenuBar.closeCalendar();
+        }
+        // Ctrl+Up → Mission Control
+        if (e.ctrlKey && e.key === 'ArrowUp') { e.preventDefault(); NoctOS.MissionControl.open(); }
+      });
+      // Cmd+Tab app switcher
+      let switcherOpen = false, switcherIndex = 0;
+      document.addEventListener('keydown', (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'Tab') {
+          e.preventDefault();
+          const openApps = [...NoctOS.state.openApps];
+          if (openApps.length === 0) return;
+          if (!switcherOpen) {
+            switcherOpen = true; switcherIndex = 0;
+            this.showSwitcher(openApps);
+          } else {
+            switcherIndex = (switcherIndex + (e.shiftKey ? -1 : 1) + openApps.length) % openApps.length;
+            this.updateSwitcher(openApps);
+          }
+        }
+      });
+      document.addEventListener('keyup', (e) => {
+        if (switcherOpen && (e.key === 'Meta' || e.key === 'Control')) {
+          switcherOpen = false;
+          const openApps = [...NoctOS.state.openApps];
+          if (openApps.length > 0) {
+            const appName = openApps[switcherIndex];
+            const wins = Object.values(NoctOS.state.windows).filter(w => w.app === appName);
+            if (wins.length > 0) NoctOS.WindowManager.focus(wins[0].id);
+          }
+          document.getElementById('app-switcher').classList.remove('visible');
+        }
+      });
+    },
+    showSwitcher(apps) {
+      const panel = document.getElementById('app-switcher-panel');
+      panel.innerHTML = '';
+      apps.forEach((name, i) => {
+        const dockItem = NoctOS.DockManager.itemEls.find(el => el.dataset.app === name);
+        const iconSVG = dockItem ? dockItem.querySelector('.dock-icon').innerHTML : '';
+        const div = document.createElement('div');
+        div.className = 'switcher-app' + (i === switcherIndex ? ' active' : '');
+        div.innerHTML = `<div class="switcher-app-icon">${iconSVG}</div><div class="switcher-app-name">${name}</div>`;
+        panel.appendChild(div);
+      });
+      document.getElementById('app-switcher').classList.add('visible');
+    },
+    updateSwitcher(apps) {
+      document.querySelectorAll('.switcher-app').forEach((el, i) => {
+        el.classList.toggle('active', i === switcherIndex);
+      });
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     IDLE TRACKER (Screensaver)
+     ═══════════════════════════════════════════ */
+  IdleTracker: {
+    timer: null,
+    init() {
+      const reset = () => {
+        if (NoctOS.state.screensaverActive) {
+          NoctOS.state.screensaverActive = false;
+          document.getElementById('screensaver').classList.remove('active');
+        }
+        clearTimeout(this.timer);
+        this.timer = setTimeout(() => {
+          NoctOS.state.screensaverActive = true;
+          const ss = document.getElementById('screensaver');
+          ss.classList.add('active');
+          const updateTime = () => {
+            const now = new Date();
+            document.getElementById('screensaver-time').textContent =
+              now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+          };
+          updateTime();
+          const interval = setInterval(() => {
+            if (!NoctOS.state.screensaverActive) { clearInterval(interval); return; }
+            updateTime();
+          }, 1000);
+        }, 90000);
+      };
+      ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+        document.addEventListener(evt, reset, { passive: true });
+      });
+      reset();
+    }
+  },
+
+  Spotlight: {
+    open() {
+      document.getElementById('spotlight-overlay').classList.add('visible');
+      const input = document.getElementById('spotlight-input');
+      input.value = '';
+      setTimeout(() => input.focus(), 50);
+      this.renderResults('');
+    },
+    close() { document.getElementById('spotlight-overlay').classList.remove('visible'); },
+    toggle() {
+      const overlay = document.getElementById('spotlight-overlay');
+      if (overlay.classList.contains('visible')) this.close(); else this.open();
+    },
+    renderResults(query) {
+      const allApps = [
+        { name: 'Finder', icon: '📂', cat: 'Application' },
+        { name: 'Safari', icon: '🧭', cat: 'Application' },
+        { name: 'Terminal', icon: '>_', cat: 'Application' },
+        { name: 'Notes', icon: '📝', cat: 'Application' },
+        { name: 'Calculator', icon: '🔢', cat: 'Application' },
+        { name: 'Settings', icon: '⚙️', cat: 'Application' },
+      ];
+      const files = [
+        { name: 'README.txt', icon: '📄', cat: 'Document' },
+        { name: 'Projects', icon: '📁', cat: 'Folder' },
+        { name: 'Macintosh HD', icon: '💾', cat: 'Device' },
+      ];
+      const q = query.toLowerCase().trim();
+      const matchedApps = q ? allApps.filter(a => a.name.toLowerCase().includes(q)) : allApps;
+      const matchedFiles = q ? files.filter(f => f.name.toLowerCase().includes(q)) : [];
+      let html = '';
+      if (matchedApps.length) {
+        html += '<div class="spotlight-section-label">Applications</div>';
+        matchedApps.forEach(a => {
+          html += `<div class="spotlight-result" data-app="${a.name}"><div class="spotlight-result-icon">${a.icon}</div><div class="spotlight-result-name">${a.name}</div><div class="spotlight-result-cat">${a.cat}</div></div>`;
+        });
+      }
+      if (matchedFiles.length) {
+        html += '<div class="spotlight-section-label">Files</div>';
+        matchedFiles.forEach(f => {
+          html += `<div class="spotlight-result" data-app="${f.name === 'README.txt' ? 'Notes' : 'Finder'}"><div class="spotlight-result-icon">${f.icon}</div><div class="spotlight-result-name">${f.name}</div><div class="spotlight-result-cat">${f.cat}</div></div>`;
+        });
+      }
+      if (q && !matchedApps.length && !matchedFiles.length) {
+        html = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">No results found</div>';
+      }
+      document.getElementById('spotlight-results').innerHTML = html;
+      document.querySelectorAll('.spotlight-result').forEach(el => {
+        el.addEventListener('click', () => {
+          const appName = el.dataset.app;
+          this.close();
+          NoctOS.Apps[appName]?.open();
+        });
+      });
+    }
+  },
+
+  /* ═══════════════════════════════════════════
+     APPLICATIONS
+     ═══════════════════════════════════════════ */
+  Apps: {
+    /* ─── ABOUT ─── */
+    About: {
+      open() {
+        if (NoctOS.state.windows['about']) { NoctOS.WindowManager.focus(NoctOS.state.windows['about'].id); return; }
+        const id = NoctOS.WindowManager.create('About', { title: 'About NoctOS', width: 320, height: 380, resizable: false });
+        NoctOS.state.windows['about'] = NoctOS.state.windows['about'] || {};
+        NoctOS.state.windows['about'].id = id;
+        const content = document.getElementById('content-' + id);
+        content.style.background = 'var(--bg-surface)';
+        content.innerHTML = `
+          <div class="about-panel">
+            <div class="about-logo"><svg width="64" height="64" viewBox="0 0 64 64" fill="none"><path d="M32 4C17.28 4 4 17.28 4 32s13.28 28 28 28c4.8 0 9.32-1.29 13.21-3.53C40.51 57.57 35.09 58.67 29 58.67 16.08 58.67 5.33 47.92 5.33 35c0-11.8 7.16-21.59 19.64-23.57C26.96 7.16 29.33 4 32 4z" fill="var(--accent)"/></svg></div>
+            <div class="about-name">NoctOS</div>
+            <div class="about-version">Version 1.0</div>
+            <div class="about-divider"></div>
+            <div class="about-table">
+              <div class="about-row"><span class="about-row-label">Chip</span><span class="about-row-value">Virtual Silicon</span></div>
+              <div class="about-row"><span class="about-row-label">Memory</span><span class="about-row-value">8 GB (simulated)</span></div>
+              <div class="about-row"><span class="about-row-label">Storage</span><span class="about-row-value">256 GB (simulated)</span></div>
+              <div class="about-row"><span class="about-row-label">Display</span><span class="about-row-value">${window.screen.width} × ${window.screen.height}</span></div>
+            </div>
+          </div>`;
+      }
+    },
+
+    /* ─── FINDER ─── */
+    Finder: {
+      fileSystem: {
+        'Macintosh HD': {
+          type: 'folder', children: {
+            'Desktop': { type: 'folder', children: { 'README.txt': { type: 'file', size: '4 KB', kind: 'Text', date: 'Jun 15, 2026' } } },
+            'Downloads': { type: 'folder', children: { 'screenshot.png': { type: 'file', size: '2.1 MB', kind: 'PNG Image', date: 'Jun 14, 2026' }, 'design-v2.fig': { type: 'file', size: '8.5 MB', kind: 'Figma File', date: 'Jun 13, 2026' } } },
+            'Documents': { type: 'folder', children: { 'project-alpha': { type: 'folder', children: { 'index.html': { type: 'file', size: '12 KB', kind: 'HTML', date: 'Jun 12, 2026' }, 'style.css': { type: 'file', size: '6 KB', kind: 'CSS', date: 'Jun 12, 2026' }, 'app.js': { type: 'file', size: '18 KB', kind: 'JavaScript', date: 'Jun 11, 2026' } } }, 'notes.txt': { type: 'file', size: '1 KB', kind: 'Text', date: 'Jun 10, 2026' } } },
+            'Projects': { type: 'folder', children: { 'noctOS': { type: 'folder', children: { 'index.html': { type: 'file', size: '50 KB', kind: 'HTML', date: 'Jun 17, 2026' } } }, 'website': { type: 'folder', children: { 'index.html': { type: 'file', size: '8 KB', kind: 'HTML', date: 'Jun 9, 2026' }, 'main.css': { type: 'file', size: '4 KB', kind: 'CSS', date: 'Jun 9, 2026' } } } } },
+            'Applications': { type: 'folder', children: { 'Safari.app': { type: 'file', size: '120 MB', kind: 'Application', date: 'Jan 1, 2026' }, 'Terminal.app': { type: 'file', size: '15 MB', kind: 'Application', date: 'Jan 1, 2026' } } }
+          }
+        }
+      },
+      history: [],
+      historyIndex: -1,
+      currentPath: ['Macintosh HD'],
+      viewMode: 'grid',
+      windowId: null,
+      open() {
+        if (this.windowId && NoctOS.state.windows[this.windowId]) { NoctOS.WindowManager.focus(this.windowId); return; }
+        this.windowId = NoctOS.WindowManager.create('Finder', { title: 'Finder', width: 760, height: 480 });
+        this.currentPath = ['Macintosh HD'];
+        this.history = [['Macintosh HD']];
+        this.historyIndex = 0;
+        this.render();
+      },
+      render() {
+        const content = document.getElementById('content-' + this.windowId);
+        if (!content) return;
+        const pathStr = this.currentPath.join(' › ');
+        const currentFolder = this.getCurrentFolder();
+        let items = '';
+        if (this.viewMode === 'grid') {
+          items = '<div class="finder-grid">';
+          Object.entries(currentFolder).forEach(([name, item]) => {
+            const icon = item.type === 'folder'
+              ? `<svg class="file-icon" viewBox="0 0 56 56"><path d="M8 16h16l4 4h20a2 2 0 012 2v24a2 2 0 01-2 2H8a2 2 0 01-2-2V18a2 2 0 012-2z" fill="#5b9ef6"/><path d="M6 26h44v20a2 2 0 01-2 2H8a2 2 0 01-2-2V26z" fill="#4a8ae6"/></svg>`
+              : `<svg class="file-icon" viewBox="0 0 56 56"><rect x="8" y="6" width="40" height="44" rx="4" fill="#f0f0f5"/><rect x="14" y="14" width="28" height="2" rx="1" fill="#bbb"/><rect x="14" y="20" width="22" height="2" rx="1" fill="#bbb"/><rect x="14" y="26" width="26" height="2" rx="1" fill="#bbb"/></svg>`;
+            items += `<div class="finder-grid-item" ondblclick="NoctOS.Apps.Finder.navigate('${name}')">${icon}<span class="file-name">${name}</span></div>`;
+          });
+          items += '</div>';
+        } else {
+          items = `<div class="finder-list"><div class="finder-list-header"><div>Name</div><div>Date Modified</div><div>Size</div><div>Kind</div></div>`;
+          Object.entries(currentFolder).forEach(([name, item]) => {
+            items += `<div class="finder-list-row" ondblclick="NoctOS.Apps.Finder.navigate('${name}')"><div>${name}</div><div>${item.date || '—'}</div><div>${item.size || '—'}</div><div>${item.kind || (item.type === 'folder' ? 'Folder' : 'File')}</div></div>`;
+          });
+          items += '</div>';
+        }
+        content.innerHTML = `
+          <div class="finder-toolbar">
+            <button onclick="NoctOS.Apps.Finder.goBack()" ${this.historyIndex <= 0 ? 'disabled' : ''}>←</button>
+            <button onclick="NoctOS.Apps.Finder.goForward()" ${this.historyIndex >= this.history.length - 1 ? 'disabled' : ''}>→</button>
+            <div class="finder-breadcrumb">${this.currentPath.map((p, i) => `<span onclick="NoctOS.Apps.Finder.goToIndex(${i})">${p}</span>`).join(' › ')}</div>
+            <button onclick="NoctOS.Apps.Finder.viewMode='grid';NoctOS.Apps.Finder.render()" style="${this.viewMode === 'grid' ? 'color:var(--accent)' : ''}">▦</button>
+            <button onclick="NoctOS.Apps.Finder.viewMode='list';NoctOS.Apps.Finder.render()" style="${this.viewMode === 'list' ? 'color:var(--accent)' : ''}">☰</button>
+            <input class="finder-search" placeholder="Search">
+          </div>
+          <div class="finder-layout">
+            <div class="finder-sidebar">
+              <div class="finder-sidebar-section">Favorites</div>
+              <div class="finder-sidebar-item" onclick="NoctOS.Apps.Finder.goTo(['Macintosh HD','Desktop'])"><svg viewBox="0 0 16 16" fill="var(--accent)"><rect x="2" y="2" width="12" height="10" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="2" y1="14" x2="14" y2="14" stroke="currentColor" stroke-width="1.2"/></svg>Desktop</div>
+              <div class="finder-sidebar-item" onclick="NoctOS.Apps.Finder.goTo(['Macintosh HD','Downloads'])"><svg viewBox="0 0 16 16" fill="var(--accent)"><polyline points="4,8 8,12 12,8" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="2" x2="8" y2="12" stroke="currentColor" stroke-width="1.5"/></svg>Downloads</div>
+              <div class="finder-sidebar-item" onclick="NoctOS.Apps.Finder.goTo(['Macintosh HD','Documents'])"><svg viewBox="0 0 16 16" fill="var(--accent)"><rect x="2" y="3" width="12" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="7" x2="11" y2="7" stroke="currentColor" stroke-width="1"/><line x1="5" y1="10" x2="9" y2="10" stroke="currentColor" stroke-width="1"/></svg>Documents</div>
+              <div class="finder-sidebar-section">Devices</div>
+              <div class="finder-sidebar-item" onclick="NoctOS.Apps.Finder.goTo(['Macintosh HD'])"><svg viewBox="0 0 16 16" fill="var(--accent)"><rect x="2" y="5" width="12" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><rect x="5" y="8" width="6" height="1" rx="0.5" fill="currentColor"/></svg>Macintosh HD</div>
+            </div>
+            <div class="finder-content">${items}</div>
+          </div>`;
+      },
+      getCurrentFolder() {
+        let current = this.fileSystem['Macintosh HD'];
+        for (let i = 1; i < this.currentPath.length; i++) {
+          if (current.children && current.children[this.currentPath[i]]) {
+            current = current.children[this.currentPath[i]];
+          }
+        }
+        return current.children || current;
+      },
+      navigate(name) {
+        const folder = this.getCurrentFolder();
+        if (folder[name] && folder[name].type === 'folder') {
+          this.currentPath.push(name);
+          this.history = this.history.slice(0, this.historyIndex + 1);
+          this.history.push([...this.currentPath]);
+          this.historyIndex = this.history.length - 1;
+          this.render();
+        }
+      },
+      goTo(path) { this.currentPath = [...path]; this.history.push([...path]); this.historyIndex = this.history.length - 1; this.render(); },
+      goToIndex(i) { this.currentPath = [...this.history[i]]; this.historyIndex = i; this.render(); },
+      goBack() { if (this.historyIndex > 0) { this.historyIndex--; this.currentPath = [...this.history[this.historyIndex]]; this.render(); } },
+      goForward() { if (this.historyIndex < this.history.length - 1) { this.historyIndex++; this.currentPath = [...this.history[this.historyIndex]]; this.render(); } }
+    },
+
+    /* ─── TERMINAL ─── */
+    Terminal: {
+      windowId: null,
+      history: [],
+      historyIndex: -1,
+      currentDir: '~',
+      commands: ['help','ls','cd','pwd','whoami','date','echo','clear','history','open','neofetch','cat','rm','sudo','exit'],
+      fileContents: {
+        '~/README.txt': 'Welcome to NoctOS!\nA macOS-inspired web operating system built with vanilla HTML, CSS, and JavaScript.\n\nFeatures:\n- Draggable, resizable windows\n- Working terminal with commands\n- Finder with file navigation\n- Notes with localStorage\n- Calculator\n- Settings with live theme customization\n- Spotlight search\n- Notification center',
+        '~/Documents/notes.txt': 'These are my notes.\nNothing too fancy here.',
+        '~/Projects/noctOS/index.html': '<!DOCTYPE html>\n<html>\n<head><title>NoctOS</title></head>\n<body>\n  <!-- The OS you\'re currently using! -->\n</body>\n</html>',
+      },
+      fakeFiles: {
+        '~': ['Desktop', 'Downloads', 'Documents', 'Projects'],
+        '~/Desktop': ['README.txt'],
+        '~/Downloads': ['screenshot.png', 'design-v2.fig'],
+        '~/Documents': ['notes.txt', 'project-alpha'],
+        '~/Documents/project-alpha': ['index.html', 'style.css', 'app.js'],
+        '~/Projects': ['noctOS', 'website'],
+        '~/Projects/noctOS': ['index.html'],
+        '~/Projects/website': ['index.html', 'main.css'],
+      },
+      open() {
+        if (this.windowId && NoctOS.state.windows[this.windowId]) { NoctOS.WindowManager.focus(this.windowId); return; }
+        this.windowId = NoctOS.WindowManager.create('Terminal', { title: 'Terminal', width: 600, height: 400 });
+        this.history = [];
+        this.historyIndex = -1;
+        this.currentDir = '~';
+        this.render();
+      },
+      render() {
+        const content = document.getElementById('content-' + this.windowId);
+        if (!content) return;
+        content.innerHTML = `
+          <div class="terminal-body" id="term-body-${this.windowId}">
+            <div class="terminal-line" style="color:var(--text-tertiary)">Last login: ${new Date().toLocaleString()} on ttys000</div>
+          </div>
+          <div class="terminal-input-row" style="background:#0d0d14;padding:0 16px 8px">
+            <span class="terminal-prompt-user">noctos@system</span>&nbsp;<span class="terminal-prompt-path">${this.currentDir}</span>&nbsp;<span class="terminal-prompt-char">%&nbsp;</span>
+            <input class="terminal-input" id="term-input-${this.windowId}" autofocus>
+          </div>`;
+        const input = document.getElementById('term-input-' + this.windowId);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            const cmd = input.value.trim();
+            if (cmd) { this.history.push(cmd); this.historyIndex = this.history.length; }
+            this.execute(cmd);
+            input.value = '';
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (this.historyIndex > 0) { this.historyIndex--; input.value = this.history[this.historyIndex]; }
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (this.historyIndex < this.history.length - 1) { this.historyIndex++; input.value = this.history[this.historyIndex]; } else { this.historyIndex = this.history.length; input.value = ''; }
+          } else if (e.key === 'Tab') {
+            e.preventDefault();
+            const partial = input.value.trim().toLowerCase();
+            if (partial) {
+              const match = this.commands.find(c => c.startsWith(partial));
+              if (match && this.commands.filter(c => c.startsWith(partial)).length === 1) input.value = match + ' ';
+            }
+          }
+        });
+        content.addEventListener('click', () => input.focus());
+      },
+      print(text, className) {
+        const body = document.getElementById('term-body-' + this.windowId);
+        if (!body) return;
+        const line = document.createElement('div');
+        line.className = 'terminal-line' + (className ? ' ' + className : '');
+        line.textContent = text;
+        body.appendChild(line);
+        body.scrollTop = body.scrollHeight;
+      },
+      printHTML(html) {
+        const body = document.getElementById('term-body-' + this.windowId);
+        if (!body) return;
+        const line = document.createElement('div');
+        line.className = 'terminal-line';
+        line.innerHTML = html;
+        body.appendChild(line);
+        body.scrollTop = body.scrollHeight;
+      },
+      printPrompt(cmd) {
+        this.printHTML(`<span class="terminal-prompt-user">noctos@system</span> <span class="terminal-prompt-path">${this.currentDir}</span> <span class="terminal-prompt-char">% </span>${this.escapeHtml(cmd)}`);
+      },
+      escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); },
+      execute(cmd) {
+        this.printPrompt(cmd);
+        if (!cmd) return;
+        const parts = cmd.split(/\s+/);
+        const command = parts[0].toLowerCase();
+        const args = parts.slice(1);
+        switch (command) {
+          case 'help':
+            this.printHTML('<span style="color:var(--accent);font-weight:600">Available commands:</span>');
+            this.print('  help       Show this help message');
+            this.print('  ls         List directory contents');
+            this.print('  ls -la     List with details');
+            this.print('  cd [dir]   Change directory');
+            this.print('  pwd        Print working directory');
+            this.print('  whoami     Show current user');
+            this.print('  date       Show current date/time');
+            this.print('  echo [msg] Print message');
+            this.print('  clear      Clear terminal');
+            this.print('  history    Show command history');
+            this.print('  open [app] Open an application');
+            this.print('  neofetch   Show system info');
+            this.print('  cat [file] Show file contents');
+            this.print('  rm [file]  Remove file');
+            this.print('  sudo       Execute as superuser');
+            this.print('  exit       Close terminal');
+            break;
+          case 'ls':
+            const dir = this.fakeFiles[this.currentDir] || [];
+            if (args.includes('-la')) {
+              this.printHTML('<span style="color:var(--text-tertiary)">total ' + dir.length + '</span>');
+              dir.forEach(f => {
+                const isDir = !f.includes('.');
+                this.print(`${isDir ? 'drwxr-xr-x' : '-rw-r--r--'}  noctos  staff  ${isDir ? '  128' : '  256'}  Jun 17 13:00  ${isDir ? `<span style="color:#5b9ef6;font-weight:600">${f}</span>` : f}`);
+              });
+            } else {
+              let out = '';
+              dir.forEach(f => {
+                const isDir = !f.includes('.');
+                out += isDir ? `<span class="terminal-output-blue" style="font-weight:600">${f}</span>  ` : `<span class="terminal-output-white">${f}</span>  `;
+              });
+              this.printHTML(out || '<span style="color:var(--text-tertiary)">(empty)</span>');
+            }
+            break;
+          case 'cd':
+            if (!args[0] || args[0] === '~') { this.currentDir = '~'; this.render(); return; }
+            if (args[0] === '..') {
+              if (this.currentDir !== '~') {
+                const parts = this.currentDir.split('/');
+                parts.pop();
+                this.currentDir = parts.join('/') || '~';
+                this.render();
+              }
+              return;
+            }
+            const target = this.currentDir === '~' ? `~/${args[0]}` : `${this.currentDir}/${args[0]}`;
+            if (this.fakeFiles[target]) { this.currentDir = target; this.render(); }
+            else this.print(`cd: no such file or directory: ${args[0]}`, 'terminal-output-red');
+            break;
+          case 'pwd': this.print(this.currentDir); break;
+          case 'whoami': this.print('noctos-user'); break;
+          case 'date': this.print(new Date().toString()); break;
+          case 'echo': this.print(args.join(' ')); break;
+          case 'clear':
+            const body = document.getElementById('term-body-' + this.windowId);
+            if (body) body.innerHTML = '';
+            break;
+          case 'history':
+            this.history.forEach((h, i) => this.print(`  ${i + 1}  ${h}`));
+            break;
+          case 'open':
+            if (args[0]) {
+              const appName = args[0].charAt(0).toUpperCase() + args[0].slice(1);
+              if (NoctOS.Apps[appName]) { NoctOS.Apps[appName].open(); this.print(`Opening ${appName}...`); }
+              else this.print(`open: ${args[0]}: No such application`, 'terminal-output-red');
+            } else this.print('Usage: open [appname]', 'terminal-output-yellow');
+            break;
+          case 'neofetch':
+            this.printHTML(`<span style="color:var(--accent)">    ╭─────╮</span>  <span style="color:var(--accent);font-weight:700">noctos-user</span>@<span style="color:var(--accent);font-weight:700">system</span>`);
+            this.printHTML(`<span style="color:var(--accent)">   ╱       ╲</span>  ─────────────`);
+            this.printHTML(`<span style="color:var(--accent)">  │  ◗      │</span>  <span style="color:var(--accent)">OS:</span> NoctOS 1.0`);
+            this.printHTML(`<span style="color:var(--accent)">  │         │</span>  <span style="color:var(--accent)">Host:</span> MacBook Pro (Virtual)`);
+            this.printHTML(`<span style="color:var(--accent)">   ╲       ╱</span>  <span style="color:var(--accent)">Shell:</span> nsh 1.0.0`);
+            this.printHTML(`<span style="color:var(--accent)">    ╰─────╯</span>  <span style="color:var(--accent)">Resolution:</span> ${window.screen.width}x${window.screen.height}`);
+            this.printHTML(`               <span style="color:var(--accent)">Terminal:</span> NoctOS Terminal`);
+            this.printHTML(`               <span style="color:var(--accent)">CPU:</span> Apple Silicon (Virtual)`);
+            this.printHTML(`               <span style="color:var(--accent)">Memory:</span> ${Math.round(Math.random() * 2048 + 2048)} MB / 8192 MB`);
+            break;
+          case 'cat':
+            if (args[0]) {
+              const filePath = this.currentDir === '~' ? `~/${args[0]}` : `${this.currentDir}/${args[0]}`;
+              const content = this.fileContents[filePath];
+              if (content) content.split('\n').forEach(l => this.print(l));
+              else this.print(`cat: ${args[0]}: No such file`, 'terminal-output-red');
+            } else this.print('Usage: cat [filename]', 'terminal-output-yellow');
+            break;
+          case 'rm':
+            this.print('Permission denied. (just kidding, this is a simulation)', 'terminal-output-red');
+            break;
+          case 'sudo':
+            this.print('Nice try.', 'terminal-output-yellow');
+            break;
+          case 'exit':
+            NoctOS.WindowManager.close(this.windowId);
+            this.windowId = null;
+            break;
+          default:
+            this.print(`nsh: ${command}: command not found`, 'terminal-output-red');
+        }
+      }
+    },
+
+    /* ─── NOTES ─── */
+    Notes: {
+      windowId: null,
+      notes: [],
+      activeNote: null,
+      saveTimer: null,
+      load() {
+        try { this.notes = JSON.parse(localStorage.getItem('noctos_notes')) || this.getDefaultNotes(); }
+        catch { this.notes = this.getDefaultNotes(); }
+      },
+      getDefaultNotes() {
+        return [
+          { id: 1, title: 'NoctOS Features', content: '<p>• Draggable, resizable windows with traffic lights</p><p>• Working Finder with nested file system</p><p>• Terminal with 15+ built-in commands</p><p>• Notes with auto-save to localStorage</p><p>• Calculator with full math logic</p><p>• Settings with live accent color</p><p>• Spotlight search</p><p>• Notification center</p><p>• Mission Control</p><p>• Screensaver after idle</p>', updatedAt: Date.now() },
+          { id: 2, title: 'Project Ideas', content: '<p>• Build a CSS art gallery</p><p>• Create a real-time collaborative whiteboard</p><p>• Design a music visualizer</p><p>• Make a pixel art editor</p><p>• Build a Pomodoro timer app</p>', updatedAt: Date.now() - 86400000 },
+          { id: 3, title: 'Getting Started', content: '<p>Welcome to NoctOS! This is a macOS-inspired web operating system.</p><p>Try these things:</p><p>• Double-click desktop icons to open apps</p><p>• Right-click the desktop for options</p><p>• Use Cmd+Space to open Spotlight</p><p>• Try the Terminal commands (type "help")</p><p>• Change the accent color in Settings</p><p>• Let the screen sit idle for 90s to see the screensaver</p>', updatedAt: Date.now() - 172800000 },
+        ];
+      },
+      save() {
+        clearTimeout(this.saveTimer);
+        this.saveTimer = setTimeout(() => {
+          localStorage.setItem('noctos_notes', JSON.stringify(this.notes));
+          const pill = document.querySelector('.notes-save-pill');
+          if (pill) { pill.classList.add('visible'); setTimeout(() => pill.classList.remove('visible'), 1500); }
+        }, 800);
+      },
+      open() {
+        if (this.windowId && NoctOS.state.windows[this.windowId]) { NoctOS.WindowManager.focus(this.windowId); return; }
+        this.load();
+        this.windowId = NoctOS.WindowManager.create('Notes', { title: 'Notes', width: 680, height: 480 });
+        if (this.notes.length > 0) this.activeNote = this.notes[0];
+        this.render();
+      },
+      render() {
+        const content = document.getElementById('content-' + this.windowId);
+        if (!content) return;
+        let listHTML = '';
+        this.notes.forEach(n => {
+          const preview = n.content.replace(/<[^>]*>/g, '').substring(0, 60);
+          const date = new Date(n.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          listHTML += `<div class="note-item${this.activeNote && this.activeNote.id === n.id ? ' active' : ''}" onclick="NoctOS.Apps.Notes.selectNote(${n.id})"><div class="note-item-title">${n.title}</div><div class="note-item-preview">${preview}</div><div class="note-item-date">${date}</div></div>`;
+        });
+        content.innerHTML = `
+          <div class="notes-layout">
+            <div class="notes-sidebar">
+              <div class="notes-sidebar-top">
+                <input class="notes-sidebar-search" placeholder="Search">
+                <button class="notes-new-btn" onclick="NoctOS.Apps.Notes.newNote()">+</button>
+              </div>
+              <div class="notes-list">${listHTML}</div>
+            </div>
+            <div class="notes-editor">
+              <input class="notes-editor-title" id="note-title-${this.windowId}" value="${this.activeNote ? this.activeNote.title : ''}" placeholder="Title" oninput="NoctOS.Apps.Notes.updateTitle()">
+              <div class="notes-editor-toolbar">
+                <button class="notes-toolbar-btn" onclick="document.execCommand('bold')"><b>B</b></button>
+                <button class="notes-toolbar-btn" onclick="document.execCommand('italic')"><i>I</i></button>
+                <button class="notes-toolbar-btn" onclick="document.execCommand('underline')"><u>U</u></button>
+                <button class="notes-toolbar-btn" onclick="document.execCommand('insertHorizontalRule')">—</button>
+                <button class="notes-toolbar-btn" onclick="document.execCommand('insertUnorderedList')">•</button>
+                <div class="notes-save-pill"><div class="notes-save-dot"></div>Saved</div>
+              </div>
+              <div class="notes-editor-content" id="note-content-${this.windowId}" contenteditable="true" oninput="NoctOS.Apps.Notes.updateContent()">${this.activeNote ? this.activeNote.content : ''}</div>
+            </div>
+          </div>`;
+      },
+      selectNote(id) {
+        this.activeNote = this.notes.find(n => n.id === id);
+        this.render();
+      },
+      newNote() {
+        const note = { id: Date.now(), title: 'Untitled Note', content: '', updatedAt: Date.now() };
+        this.notes.unshift(note);
+        this.activeNote = note;
+        this.save();
+        this.render();
+      },
+      updateTitle() {
+        if (!this.activeNote) return;
+        const input = document.getElementById('note-title-' + this.windowId);
+        if (input) { this.activeNote.title = input.value; this.activeNote.updatedAt = Date.now(); this.save(); }
+      },
+      updateContent() {
+        if (!this.activeNote) return;
+        const el = document.getElementById('note-content-' + this.windowId);
+        if (el) { this.activeNote.content = el.innerHTML; this.activeNote.updatedAt = Date.now(); this.save(); }
+      }
+    },
+
+    /* ─── CALCULATOR ─── */
+    Calculator: {
+      windowId: null,
+      value: '0',
+      expression: '',
+      operator: null,
+      prevValue: null,
+      newNumber: true,
+      open() {
+        if (this.windowId && NoctOS.state.windows[this.windowId]) { NoctOS.WindowManager.focus(this.windowId); return; }
+        this.windowId = NoctOS.WindowManager.create('Calculator', { title: 'Calculator', width: 280, height: 380, resizable: false });
+        this.value = '0'; this.expression = ''; this.operator = null; this.prevValue = null; this.newNumber = true;
+        this.render();
+      },
+      render() {
+        const content = document.getElementById('content-' + this.windowId);
+        if (!content) return;
+        content.innerHTML = `
+          <div class="calc-body">
+            <div class="calc-display"><div class="calc-expression">${this.expression}</div><div class="calc-value">${this.value}</div></div>
+            <div class="calc-buttons">
+              <button class="calc-btn fn" onclick="NoctOS.Apps.Calculator.clear()">AC</button>
+              <button class="calc-btn fn" onclick="NoctOS.Apps.Calculator.negate()">±</button>
+              <button class="calc-btn fn" onclick="NoctOS.Apps.Calculator.percent()">%</button>
+              <button class="calc-btn op" onclick="NoctOS.Apps.Calculator.setOp('/')">÷</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('7')">7</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('8')">8</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('9')">9</button>
+              <button class="calc-btn op" onclick="NoctOS.Apps.Calculator.setOp('*')">×</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('4')">4</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('5')">5</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('6')">6</button>
+              <button class="calc-btn op" onclick="NoctOS.Apps.Calculator.setOp('-')">−</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('1')">1</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('2')">2</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.digit('3')">3</button>
+              <button class="calc-btn op" onclick="NoctOS.Apps.Calculator.setOp('+')">+</button>
+              <button class="calc-btn zero" onclick="NoctOS.Apps.Calculator.digit('0')">0</button>
+              <button class="calc-btn" onclick="NoctOS.Apps.Calculator.decimal()">.</button>
+              <button class="calc-btn op" onclick="NoctOS.Apps.Calculator.equals()">=</button>
+            </div>
+          </div>`;
+      },
+      digit(d) {
+        if (this.newNumber) { this.value = d; this.newNumber = false; }
+        else { this.value = this.value === '0' ? d : this.value + d; }
+        this.updateDisplay();
+      },
+      decimal() {
+        if (this.newNumber) { this.value = '0.'; this.newNumber = false; }
+        else if (!this.value.includes('.')) { this.value += '.'; }
+        this.updateDisplay();
+      },
+      setOp(op) {
+        if (this.operator && !this.newNumber) this.equals();
+        this.prevValue = parseFloat(this.value);
+        this.operator = op;
+        const opSymbol = { '/': '÷', '*': '×', '-': '−', '+': '+' }[op];
+        this.expression = `${this.value} ${opSymbol}`;
+        this.newNumber = true;
+        this.updateDisplay();
+      },
+      equals() {
+        if (this.operator === null || this.prevValue === null) return;
+        const current = parseFloat(this.value);
+        let result;
+        switch (this.operator) {
+          case '+': result = this.prevValue + current; break;
+          case '-': result = this.prevValue - current; break;
+          case '*': result = this.prevValue * current; break;
+          case '/': result = current === 0 ? 'Error' : this.prevValue / current; break;
+        }
+        this.expression = `${this.prevValue} {${ this.operator }} ${current} =`;
+        this.value = result === 'Error' ? 'Error' : String(Math.round(result * 1e10) / 1e10);
+        this.operator = null; this.prevValue = null; this.newNumber = true;
+        this.updateDisplay();
+      },
+      clear() { this.value = '0'; this.expression = ''; this.operator = null; this.prevValue = null; this.newNumber = true; this.updateDisplay(); },
+      negate() { if (this.value !== '0' && this.value !== 'Error') { this.value = String(-parseFloat(this.value)); this.updateDisplay(); } },
+      percent() { if (this.value !== 'Error') { this.value = String(parseFloat(this.value) / 100); this.updateDisplay(); } },
+      updateDisplay() {
+        const content = document.getElementById('content-' + this.windowId);
+        if (!content) return;
+        const exprEl = content.querySelector('.calc-expression');
+        const valEl = content.querySelector('.calc-value');
+        if (exprEl) exprEl.textContent = this.expression;
+        if (valEl) valEl.textContent = this.value;
+      }
+    },
+
+    /* ─── SETTINGS ─── */
+    Settings: {
+      windowId: null,
+      activePanel: 'general',
+      open() {
+        if (this.windowId && NoctOS.state.windows[this.windowId]) { NoctOS.WindowManager.focus(this.windowId); return; }
+        this.windowId = NoctOS.WindowManager.create('Settings', { title: 'System Settings', width: 680, height: 460 });
+        this.render();
+      },
+      render() {
+        const content = document.getElementById('content-' + this.windowId);
+        if (!content) return;
+        content.innerHTML = `
+          <div class="settings-layout">
+            <div class="settings-sidebar">
+              <div class="settings-nav-item${this.activePanel === 'general' ? ' active' : ''}" onclick="NoctOS.Apps.Settings.switchPanel('general')">General</div>
+              <div class="settings-nav-item${this.activePanel === 'appearance' ? ' active' : ''}" onclick="NoctOS.Apps.Settings.switchPanel('appearance')">Appearance</div>
+              <div class="settings-nav-item${this.activePanel === 'wallpaper' ? ' active' : ''}" onclick="NoctOS.Apps.Settings.switchPanel('wallpaper')">Wallpaper</div>
+              <div class="settings-nav-item${this.activePanel === 'dock' ? ' active' : ''}" onclick="NoctOS.Apps.Settings.switchPanel('dock')">Dock</div>
+              <div class="settings-nav-item${this.activePanel === 'about' ? ' active' : ''}" onclick="NoctOS.Apps.Settings.switchPanel('about')">About</div>
+            </div>
+            <div class="settings-panel">${this.getPanelHTML()}</div>
+          </div>`;
+      },
+      switchPanel(name) { this.activePanel = name; this.render(); },
+      getPanelHTML() {
+        switch (this.activePanel) {
+          case 'general':
+            return `<h2>General</h2>
+              <div class="settings-row"><span class="settings-label">Username</span><input class="settings-input" value="noctos-user"></div>
+              <div class="settings-row"><span class="settings-label">Language</span><span class="settings-value">English</span></div>
+              <div class="settings-row"><span class="settings-label">Timezone</span><span class="settings-value">${Intl.DateTimeFormat().resolvedOptions().timeZone}</span></div>`;
+          case 'appearance':
+            const colors = [
+              { name: 'blue', hex: '#3b82f6' }, { name: 'purple', hex: '#8b5cf6' },
+              { name: 'pink', hex: '#ec4899' }, { name: 'green', hex: '#22c55e' },
+              { name: 'orange', hex: '#f97316' }, { name: 'red', hex: '#ef4444' }
+            ];
+            return `<h2>Appearance</h2>
+              <div class="settings-label" style="margin-bottom:8px">Accent Color</div>
+              <div class="accent-swatches">${colors.map(c =>
+                `<div class="accent-swatch${NoctOS.state.accent === c.hex ? ' active' : ''}" style="background:${c.hex}" onclick="NoctOS.Apps.Settings.setAccent('${c.hex}')"></div>`
+              ).join('')}</div>`;
+          case 'wallpaper':
+            const wallpapers = [
+              { name: 'Base', css: 'var(--bg-base)' },
+              { name: 'Nebula', css: 'radial-gradient(ellipse at 30% 60%, #1a0a2e 0%, #0a0a0f 60%)' },
+              { name: 'Aurora', css: 'linear-gradient(135deg, #0a0f1e 0%, #0d1a0f 50%, #0a0a0f 100%)' },
+              { name: 'Midnight', css: 'radial-gradient(circle at 70% 20%, #0f0f2e 0%, #0a0a0f 70%)' }
+            ];
+            return `<h2>Wallpaper</h2>
+              <div class="wallpaper-grid">${wallpapers.map((w, i) =>
+                `<div class="wallpaper-thumb${NoctOS.state.wallpaper === ['base','nebula','aurora','midnight'][i] ? ' active' : ''}" style="background:${w.css}" onclick="NoctOS.Apps.Settings.setWallpaper(${i})" title="${w.name}"></div>`
+              ).join('')}</div>`;
+          case 'dock':
+            return `<h2>Dock</h2>
+              <div class="settings-row"><span class="settings-label">Show dock labels</span><label class="settings-checkbox"><input type="checkbox" checked> Show</label></div>
+              <div class="settings-row"><span class="settings-label">Magnification</span><label class="settings-checkbox"><input type="checkbox" checked id="dock-mag-toggle" onchange="NoctOS.DockManager.magnification=this.checked"> Enabled</label></div>
+              <div class="settings-row"><span class="settings-label">Icon size</span><input type="range" class="settings-slider" min="40" max="72" value="56"></div>`;
+          case 'about':
+            return `<div class="about-panel">
+              <div class="about-logo"><svg width="64" height="64" viewBox="0 0 64 64" fill="none"><path d="M32 4C17.28 4 4 17.28 4 32s13.28 28 28 28c4.8 0 9.32-1.29 13.21-3.53C40.51 57.57 35.09 58.67 29 58.67 16.08 58.67 5.33 47.92 5.33 35c0-11.8 7.16-21.59 19.64-23.57C26.96 7.16 29.33 4 32 4z" fill="var(--accent)"/></svg></div>
+              <div class="about-name">NoctOS</div>
+              <div class="about-version">Version 1.0</div>
+              <div class="about-divider"></div>
+              <div class="about-table">
+                <div class="about-row"><span class="about-row-label">Chip</span><span class="about-row-value">Virtual Silicon</span></div>
+                <div class="about-row"><span class="about-row-label">Memory</span><span class="about-row-value">8 GB (simulated)</span></div>
+                <div class="about-row"><span class="about-row-label">Storage</span><span class="about-row-value">256 GB (simulated)</span></div>
+                <div class="about-row"><span class="about-row-label">Display</span><span class="about-row-value">${window.screen.width} × ${window.screen.height}</span></div>
+              </div>
+            </div>`;
+          default: return '';
+        }
+      },
+      setAccent(hex) {
+        NoctOS.state.accent = hex;
+        document.documentElement.style.setProperty('--accent', hex);
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        document.documentElement.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.20)`);
+        document.documentElement.style.setProperty('--accent-dim', `rgba(${r},${g},${b},0.10)`);
+        document.documentElement.style.setProperty('--border-accent', `rgba(${r},${g},${b},0.40)`);
+        this.render();
+      },
+      setWallpaper(index) {
+        const names = ['base', 'nebula', 'aurora', 'midnight'];
+        const classes = ['', 'wallpaper-nebula', 'wallpaper-aurora', 'wallpaper-midnight'];
+        const desktop = document.getElementById('desktop');
+        classes.forEach(c => { if (c) desktop.classList.remove(c); });
+        if (classes[index]) desktop.classList.add(classes[index]);
+        NoctOS.state.wallpaper = names[index];
+        NoctOS.state.wallpaperIndex = index;
+        this.render();
+      }
+    },
+
+    /* ─── SAFARI ─── */
+    Safari: {
+      windowId: null,
+      tabs: [{ title: 'Start Page', url: '' }],
+      activeTab: 0,
+      open() {
+        if (this.windowId && NoctOS.state.windows[this.windowId]) { NoctOS.WindowManager.focus(this.windowId); return; }
+        this.windowId = NoctOS.WindowManager.create('Safari', { title: 'Safari', width: 900, height: 560 });
+        this.tabs = [{ title: 'Start Page', url: '' }];
+        this.activeTab = 0;
+        this.render();
+      },
+      render() {
+        const content = document.getElementById('content-' + this.windowId);
+        if (!content) return;
+        const tab = this.tabs[this.activeTab];
+        let tabsHTML = this.tabs.map((t, i) =>
+          `<div class="safari-tab${i === this.activeTab ? ' active' : ''}" onclick="NoctOS.Apps.Safari.switchTab(${i})">
+            <span>${t.title || 'New Tab'}</span>
+            <span class="tab-close" onclick="event.stopPropagation();NoctOS.Apps.Safari.closeTab(${i})">×</span>
+          </div>`
+        ).join('');
+        let contentHTML = '';
+        if (tab.url) {
+          contentHTML = `<iframe src="${this.sanitizeURL(tab.url)}" sandbox="allow-scripts allow-same-origin"></iframe>`;
+        } else {
+          contentHTML = `<div class="safari-start-page">
+            <input class="safari-start-search" placeholder="Search or enter URL" onkeydown="if(event.key==='Enter'){NoctOS.Apps.Safari.loadURL(this.value)}">
+            <div class="safari-start-favs">
+              <div class="safari-start-fav" onclick="NoctOS.Apps.Safari.loadURL('https://github.com')"><div class="safari-start-fav-icon" style="background:#24292e;color:white">GH</div><div class="safari-start-fav-label">GitHub</div></div>
+              <div class="safari-start-fav" onclick="NoctOS.Apps.Safari.loadURL('https://linear.app')"><div class="safari-start-fav-icon" style="background:#5e6ad2;color:white">LA</div><div class="safari-start-fav-label">Linear</div></div>
+              <div class="safari-start-fav" onclick="NoctOS.Apps.Safari.loadURL('https://vercel.com')"><div class="safari-start-fav-icon" style="background:#000;color:white">V</div><div class="safari-start-fav-label">Vercel</div></div>
+              <div class="safari-start-fav" onclick="NoctOS.Apps.Safari.loadURL('https://figma.com')"><div class="safari-start-fav-icon" style="background:#a259ff;color:white">Fi</div><div class="safari-start-fav-label">Figma</div></div>
+            </div>
+          </div>`;
+        }
+        content.innerHTML = `
+          <div class="safari-tabs">${tabsHTML}<div class="safari-tab-add" onclick="NoctOS.Apps.Safari.addTab()">+</div></div>
+          <div class="safari-toolbar">
+            <button onclick="history.back()">←</button>
+            <button onclick="history.forward()">→</button>
+            <button onclick="NoctOS.Apps.Safari.refresh()">↻</button>
+            <input class="safari-url-bar" value="${tab.url || ''}" placeholder="Search or enter URL"
+              onkeydown="if(event.key==='Enter'){NoctOS.Apps.Safari.loadURL(this.value)}">
+            <button>↗</button>
+            <button>⊞</button>
+          </div>
+          <div class="safari-favorites-bar">
+            <div class="safari-fav-pill" onclick="NoctOS.Apps.Safari.loadURL('https://github.com')">GitHub</div>
+            <div class="safari-fav-pill" onclick="NoctOS.Apps.Safari.loadURL('https://linear.app')">Linear</div>
+            <div class="safari-fav-pill" onclick="NoctOS.Apps.Safari.loadURL('https://vercel.com')">Vercel</div>
+            <div class="safari-fav-pill" onclick="NoctOS.Apps.Safari.loadURL('https://figma.com')">Figma</div>
+          </div>
+          <div class="safari-content">${contentHTML}</div>`;
+      },
+      sanitizeURL(url) {
+        if (!url.startsWith('http')) url = 'https://' + url;
+        try { new URL(url); return url; } catch { return 'https://'; }
+      },
+      loadURL(url) {
+        if (!url) return;
+        if (!url.startsWith('http')) url = 'https://' + url;
+        this.tabs[this.activeTab].url = url;
+        this.tabs[this.activeTab].title = new URL(url).hostname;
+        this.render();
+      },
+      addTab() { this.tabs.push({ title: 'New Tab', url: '' }); this.activeTab = this.tabs.length - 1; this.render(); },
+      switchTab(i) { this.activeTab = i; this.render(); },
+      closeTab(i) {
+        if (this.tabs.length <= 1) { NoctOS.WindowManager.close(this.windowId); this.windowId = null; return; }
+        this.tabs.splice(i, 1);
+        if (this.activeTab >= this.tabs.length) this.activeTab = this.tabs.length - 1;
+        this.render();
+      },
+      refresh() { this.render(); }
+    },
+  },
+};
+
+/* ═══════════════════════════════════════════
+   GLOBAL EVENT LISTENERS
+   ═══════════════════════════════════════════ */
+document.getElementById('spotlight-overlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('spotlight-overlay')) NoctOS.Spotlight.close();
+});
+document.getElementById('spotlight-input').addEventListener('input', (e) => {
+  NoctOS.Spotlight.renderResults(e.target.value);
+});
+document.getElementById('spotlight-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') NoctOS.Spotlight.close();
+  if (e.key === 'Enter') {
+    const selected = document.querySelector('.spotlight-result.selected') || document.querySelector('.spotlight-result');
+    if (selected) { NoctOS.Spotlight.close(); NoctOS.Apps[selected.dataset.app]?.open(); }
+  }
+});
+document.getElementById('spotlight-btn').addEventListener('click', () => NoctOS.Spotlight.open());
+document.getElementById('notif-tray-btn').addEventListener('click', (e) => { e.stopPropagation(); NoctOS.NotificationCenter.open(); });
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#notif-center') && !e.target.closest('#notif-tray-btn')) {
+    document.getElementById('notif-center').classList.remove('open');
+  }
+});
+
+/* ═══════════════════════════════════════════
+   START
+   ═══════════════════════════════════════════ */
+NoctOS.boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "noctos-website",
+  "version": "1.0.0",
+  "description": "NoctOS — A macOS-inspired WebOS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["noctos", "webos", "macos", "web operating system"],
+  "author": "kaorii-ako",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
