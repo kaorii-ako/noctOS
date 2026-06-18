@@ -30,7 +30,7 @@ NoctOS is a web-based operating system that runs entirely in your browser. It fe
 | **Notes** | Rich text editing with auto-save to localStorage |
 | **Calculator** | Full math logic with keyboard support |
 | **Settings** | Live accent color picker, wallpaper switching, dock customization |
-| **Safari** | Tab-based browser with iframe loading |
+| **Safari** | Tab-based browser with loading indicators, bookmarks, and Google search |
 
 ### System Features
 - **Spotlight Search** — `Cmd+Space` to search apps and files

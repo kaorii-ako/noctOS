@@ -8,15 +8,15 @@
   const container = document.getElementById('particles');
   if (!container) return;
   
-  const PARTICLE_COUNT = 40;
+  const PARTICLE_COUNT = 45;
   
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const particle = document.createElement('div');
     particle.className = 'particle';
     particle.style.left = Math.random() * 100 + '%';
-    particle.style.animationDuration = (Math.random() * 15 + 10) + 's';
-    particle.style.animationDelay = (Math.random() * 10) + 's';
-    particle.style.width = (Math.random() * 2 + 1) + 'px';
+    particle.style.animationDuration = (Math.random() * 18 + 12) + 's';
+    particle.style.animationDelay = (Math.random() * 12) + 's';
+    particle.style.width = (Math.random() * 2.5 + 1) + 'px';
     particle.style.height = particle.style.width;
     container.appendChild(particle);
   }
@@ -45,11 +45,10 @@
 // ─── Scroll Reveal Animations ───
 (function initScrollReveal() {
   const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry, index) => {
+    entries.forEach((entry) => {
       if (entry.isIntersecting) {
-        // Stagger the animation for grid items
         const delay = entry.target.closest('.features-grid, .tech-grid') 
-          ? Array.from(entry.target.parentElement.children).indexOf(entry.target) * 100 
+          ? Array.from(entry.target.parentElement.children).indexOf(entry.target) * 80 
           : 0;
         
         setTimeout(() => {
@@ -60,8 +59,8 @@
       }
     });
   }, {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
+    threshold: 0.08,
+    rootMargin: '0px 0px -60px 0px'
   });
   
   document.querySelectorAll('.fade-in').forEach(el => {
@@ -93,7 +92,7 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     const cursor = document.createElement('div');
     cursor.className = 'terminal-line';
     cursor.innerHTML = '<span class="t-prompt">noctos@system</span> <span class="t-path">~</span> <span class="t-char">% </span><span class="t-cmd" style="border-right: 2px solid var(--accent); animation: blink 1s step-end infinite; padding-right: 2px;">_</span>';
-    cursor.style.animationDelay = '2.7s';
+    cursor.style.animationDelay = '3.0s';
     terminalBody.appendChild(cursor);
   }, 0);
 })();
