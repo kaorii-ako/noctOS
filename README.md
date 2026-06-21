@@ -117,6 +117,30 @@ exit       Close terminal
 | `Ctrl+Up` | Mission Control |
 | `Escape` | Close overlays |
 
+## AI-Assisted Development
+
+NoctOS was built with [MiMoCode](https://github.com/xiaomi/mimocode), an AI-powered coding agent, over 7+ iterative sessions. The entire project — from architecture planning to CSS polish — was driven through natural language conversation with the AI.
+
+### How AI was used
+
+- **Architecture planning** — Generated a detailed 6-phase build plan covering boot screen → menu bar → desktop → dock → window system → apps → spotlight → stretch goals
+- **Full implementation** — Wrote ~2,600 lines of vanilla HTML/CSS/JS for the OS in a single `index.html`, plus the Express backend and landing page
+- **Bug fixing** — Scanned the entire codebase, identified and fixed 6 bugs in one session (duplicate Spotlight module, calculator expression display, notes search, terminal HTML rendering, dock context menu, Safari history)
+- **Feature development** — Overhauled Safari with loading bars, bookmarks, Google search integration, and blocked-page fallback
+- **CSS polish** — Iteratively refined 50+ CSS component sections across both `index.html` and `public/os.html`, establishing consistent design tokens (easing curves, focus states, shadows, blur values)
+- **File sync management** — Kept the canonical `index.html` and served `os.html` in sync after every change
+- **Git workflow** — Managed commits and pushes to GitHub after milestones
+- **Time tracking** — Set up and logged heartbeats to Hackatime via API
+
+### What the human did
+
+- Defined the product vision ("build a macOS-inspired WebOS")
+- Directed visual polish priorities ("make it look the best OS ever")
+- Reviewed output and provided feedback each session
+- Made final decisions on features and design direction
+
+The AI handled implementation details while the human drove creative direction and quality standards.
+
 ## Development
 
 ```bash
