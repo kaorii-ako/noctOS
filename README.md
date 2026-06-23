@@ -119,6 +119,14 @@ exit       Close terminal
 | `Ctrl+Up` | Mission Control |
 | `Escape` | Close overlays |
 
+## AI Usage
+
+AI tools were used sparingly during development for:
+
+- **Code completion** -- Assisted with writing repetitive UI components and boilerplate
+- **Asset generation** -- Helped generate SVG icons and CSS animations
+- **Debugging** -- Used for identifying and fixing edge cases in event handlers
+
 ## Development
 
 ```bash
