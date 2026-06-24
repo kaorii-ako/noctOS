@@ -82,11 +82,11 @@ input, textarea { font-family: var(--font); }
   background: var(--bg-base);
   transition: background 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
-#wallpaper-nebula { background: radial-gradient(ellipse at 20% 50%, rgba(120,40,200,0.20) 0%, rgba(80,20,160,0.12) 30%, rgba(30,10,60,0.08) 50%, var(--bg-base) 70%), radial-gradient(ellipse at 80% 30%, rgba(60,20,180,0.15) 0%, transparent 50%); }
-#wallpaper-aurora { background: linear-gradient(160deg, rgba(10,20,40,0.5) 0%, rgba(15,50,30,0.35) 30%, rgba(10,20,50,0.25) 60%, var(--bg-base) 100%), radial-gradient(ellipse at 50% 0%, rgba(30,80,60,0.15) 0%, transparent 60%); }
-#wallpaper-midnight { background: radial-gradient(circle at 70% 10%, rgba(20,20,80,0.30) 0%, rgba(10,10,50,0.15) 40%, var(--bg-base) 70%), radial-gradient(circle at 20% 80%, rgba(40,20,60,0.10) 0%, transparent 50%); }
-#wallpaper-sunset { background: linear-gradient(180deg, rgba(40,10,30,0.3) 0%, rgba(80,20,20,0.2) 30%, rgba(60,20,10,0.15) 60%, var(--bg-base) 100%); }
-#wallpaper-ocean { background: radial-gradient(ellipse at 50% 100%, rgba(10,40,80,0.25) 0%, rgba(10,20,60,0.15) 40%, var(--bg-base) 70%), linear-gradient(180deg, var(--bg-base) 0%, rgba(10,30,50,0.2) 100%); }
+.wallpaper-nebula { background: radial-gradient(ellipse at 20% 50%, rgba(120,40,200,0.20) 0%, rgba(80,20,160,0.12) 30%, rgba(30,10,60,0.08) 50%, var(--bg-base) 70%), radial-gradient(ellipse at 80% 30%, rgba(60,20,180,0.15) 0%, transparent 50%); }
+.wallpaper-aurora { background: linear-gradient(160deg, rgba(10,20,40,0.5) 0%, rgba(15,50,30,0.35) 30%, rgba(10,20,50,0.25) 60%, var(--bg-base) 100%), radial-gradient(ellipse at 50% 0%, rgba(30,80,60,0.15) 0%, transparent 60%); }
+.wallpaper-midnight { background: radial-gradient(circle at 70% 10%, rgba(20,20,80,0.30) 0%, rgba(10,10,50,0.15) 40%, var(--bg-base) 70%), radial-gradient(circle at 20% 80%, rgba(40,20,60,0.10) 0%, transparent 50%); }
+.wallpaper-sunset { background: linear-gradient(180deg, rgba(40,10,30,0.3) 0%, rgba(80,20,20,0.2) 30%, rgba(60,20,10,0.15) 60%, var(--bg-base) 100%); }
+.wallpaper-ocean { background: radial-gradient(ellipse at 50% 100%, rgba(10,40,80,0.25) 0%, rgba(10,20,60,0.15) 40%, var(--bg-base) 70%), linear-gradient(180deg, var(--bg-base) 0%, rgba(10,30,50,0.2) 100%); }
 
 .desktop-icon {
   position: absolute; width: 82px; display: flex; flex-direction: column;
@@ -2309,7 +2309,7 @@ const NoctOS = {
             return `<h2>Dock</h2>
               <div class="settings-row"><span class="settings-label">Show dock labels</span><label class="settings-checkbox"><input type="checkbox" checked> Show</label></div>
               <div class="settings-row"><span class="settings-label">Magnification</span><label class="settings-checkbox"><input type="checkbox" checked id="dock-mag-toggle" onchange="NoctOS.DockManager.magnification=this.checked"> Enabled</label></div>
-              <div class="settings-row"><span class="settings-label">Icon size</span><input type="range" class="settings-slider" min="40" max="72" value="56"></div>`;
+              <div class="settings-row"><span class="settings-label">Icon size</span><input type="range" class="settings-slider" min="40" max="72" value="${NoctOS.DockManager.iconSize}" oninput="NoctOS.Apps.Settings.setDockIconSize(this.value)"></div>`;
           case 'about':
             return `<div class="about-panel">
             <div class="about-logo"><svg width="68" height="68" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="about-grad" x1="4" y1="4" x2="60" y2="60"><stop offset="0%" stop-color="var(--accent)"/><stop offset="100%" stop-color="#818cf8"/></linearGradient></defs><path d="M32 4C17.28 4 4 17.28 4 32s13.28 28 28 28c4.8 0 9.32-1.29 13.21-3.53C40.51 57.57 35.09 58.67 29 58.67 16.08 58.67 5.33 47.92 5.33 35c0-11.8 7.16-21.59 19.64-23.57C26.96 7.16 29.33 4 32 4z" fill="url(#about-grad)"/></svg></div>
@@ -2344,6 +2344,14 @@ const NoctOS = {
         NoctOS.state.wallpaper = names[index];
         NoctOS.state.wallpaperIndex = index;
         this.render();
+      },
+      setDockIconSize(size) {
+        size = parseInt(size);
+        NoctOS.DockManager.iconSize = size;
+        document.querySelectorAll('.dock-item .dock-icon').forEach(icon => {
+          icon.style.width = size + 'px';
+          icon.style.height = size + 'px';
+        });
       }
     },
 
