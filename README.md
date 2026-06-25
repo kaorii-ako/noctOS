@@ -4,6 +4,8 @@ A fully functional macOS-inspired Web Operating System built with pure vanilla H
 
 **[Launch NoctOS →](https://noctos-koii.vercel.app/os)**
 
+![NoctOS Desktop](assets/banner.png)
+
 ![NoctOS Banner](https://img.shields.io/badge/NoctOS-v1.0-3b82f6?style=for-the-badge&labelColor=0a0a0f) ![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge&labelColor=0a0a0f) ![Status](https://img.shields.io/badge/Status-Complete-28c840?style=for-the-badge&labelColor=0a0a0f)
 
 ---

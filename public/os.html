@@ -1155,7 +1155,9 @@ const NoctOS = {
         const wins = Object.values(state.windows).filter(w => w.app === appKey);
         if (wins.length > 0) {
           const topWin = wins.reduce((a, b) => (a.zIndex > b.zIndex ? a : b));
-          if (state.activeWindow === topWin.id) {
+          if (topWin.minimized) {
+            NoctOS.WindowManager.restore(topWin.id);
+          } else if (state.activeWindow === topWin.id) {
             this.bounce(appName);
           } else {
             NoctOS.WindowManager.focus(topWin.id);
@@ -1266,7 +1268,7 @@ const NoctOS = {
 
       document.getElementById('desktop').appendChild(win);
 
-      NoctOS.state.windows[id] = { element: win, app: appName, zIndex: parseInt(win.style.zIndex), minimized: false, fullscreen: false, prevBounds: null };
+      NoctOS.state.windows[id] = { id, element: win, app: appName, zIndex: parseInt(win.style.zIndex), minimized: false, fullscreen: false, prevBounds: null };
 
       // Traffic light events
       win.querySelectorAll('.traffic-light').forEach(tl => {
@@ -1306,6 +1308,7 @@ const NoctOS = {
     focus(id) {
       const w = NoctOS.state.windows[id];
       if (!w) return;
+      if (w.minimized) { this.restore(id); return; }
       w.zIndex = NoctOS.state.nextZ++;
       if (w.zIndex > 9990) NoctOS.state.nextZ = 100;
       w.element.style.zIndex = w.zIndex;
@@ -1848,13 +1851,44 @@ const NoctOS = {
       },
       navigate(name) {
         const folder = this.getCurrentFolder();
-        if (folder[name] && folder[name].type === 'folder') {
+        const item = folder[name];
+        if (!item) return;
+        if (item.type === 'folder') {
           this.currentPath.push(name);
           this.history = this.history.slice(0, this.historyIndex + 1);
           this.history.push([...this.currentPath]);
           this.historyIndex = this.history.length - 1;
           this.render();
+        } else {
+          this.openFile(name, item);
         }
+      },
+      openFile(name, item) {
+        const kind = item.kind || 'File';
+        const previews = {
+          'README.txt': 'Welcome to NoctOS!\n\nA macOS-inspired web operating system built with vanilla\nHTML, CSS, and JavaScript. Zero dependencies.\n\nDouble-click apps in the dock to get started.',
+          'notes.txt': 'These are my notes.\nNothing too fancy here.',
+          'index.html': '<!DOCTYPE html>\n<html>\n<head><title>Page</title></head>\n<body>\n  <h1>Hello from NoctOS</h1>\n</body>\n</html>',
+          'style.css': 'body {\n  margin: 0;\n  font-family: -apple-system, sans-serif;\n  background: #08080d;\n}',
+          'main.css': 'body {\n  margin: 0;\n  background: #08080d;\n}',
+          'app.js': "console.log('Hello from NoctOS');",
+        };
+        const wid = NoctOS.WindowManager.create('Finder', { title: name, width: 460, height: 360 });
+        const content = document.getElementById('content-' + wid);
+        if (!content) return;
+        const isText = /\.(txt|html|css|js|json|md)$/i.test(name) || previews[name];
+        const body = isText
+          ? `<pre style="margin:0;padding:18px;flex:1;overflow:auto;font-family:var(--font-mono);font-size:12px;line-height:1.6;color:var(--text-primary);white-space:pre-wrap;">${(previews[name] || 'No preview available.').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`
+          : `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-secondary);">
+               <div style="font-size:64px;">${/\.(png|jpg|jpeg|gif|fig)$/i.test(name) ? '🖼️' : '📄'}</div>
+               <div style="font-size:15px;color:var(--text-primary);font-weight:500;">${name}</div>
+               <div style="font-size:12px;">${kind} · ${item.size || '—'}</div>
+               <div style="font-size:11px;color:var(--text-tertiary);">Modified ${item.date || '—'}</div>
+             </div>`;
+        content.innerHTML = `<div style="display:flex;flex-direction:column;height:100%;background:#0a0a12;">
+          <div style="padding:8px 14px;border-bottom:0.5px solid rgba(255,255,255,0.06);font-size:12px;color:var(--text-secondary);">${kind} · ${item.size || '—'} · ${item.date || '—'}</div>
+          ${body}
+        </div>`;
       },
       goTo(path) { this.currentPath = [...path]; this.history.push([...path]); this.historyIndex = this.history.length - 1; this.render(); },
       goToIndex(i) { this.currentPath = [...this.history[i]]; this.historyIndex = i; this.render(); },
@@ -2167,7 +2201,7 @@ const NoctOS = {
       newNumber: true,
       open() {
         if (this.windowId && NoctOS.state.windows[this.windowId]) { NoctOS.WindowManager.focus(this.windowId); return; }
-        this.windowId = NoctOS.WindowManager.create('Calculator', { title: 'Calculator', width: 280, height: 380, resizable: false });
+        this.windowId = NoctOS.WindowManager.create('Calculator', { title: 'Calculator', width: 280, height: 500, resizable: false });
         this.value = '0'; this.expression = ''; this.operator = null; this.prevValue = null; this.newNumber = true;
         this.render();
       },
