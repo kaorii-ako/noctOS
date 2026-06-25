@@ -2433,9 +2433,10 @@ const NoctOS = {
                 <button class="safari-blocked-btn secondary" onclick="window.open('${tab.url}','_blank')">Open in Real Browser</button>
               </div>
             </div>
-            <iframe id="safari-frame-${this.windowId}" src="${this.sanitizeURL(tab.url)}" 
-              style="width:100%;height:100%;border:none" 
-              onload="NoctOS.Apps.Safari.onFrameLoad()" 
+            <iframe id="safari-frame-${this.windowId}" src="/api/proxy?url=${encodeURIComponent(this.sanitizeURL(tab.url))}"
+              style="width:100%;height:100%;border:none"
+              referrerpolicy="no-referrer"
+              onload="NoctOS.Apps.Safari.onFrameLoad()"
               onerror="NoctOS.Apps.Safari.onFrameError()">
             </iframe>`;
         } else {
@@ -2615,6 +2616,14 @@ const NoctOS = {
 /* ═══════════════════════════════════════════
    GLOBAL EVENT LISTENERS
    ═══════════════════════════════════════════ */
+// In-page links from the proxied browser bubble up here so Safari can
+// update its URL bar/history and re-proxy the navigation.
+window.addEventListener('message', (e) => {
+  if (e.data && typeof e.data.__noctNav === 'string') {
+    const S = NoctOS.Apps.Safari;
+    if (S && S.windowId) S.loadURL(e.data.__noctNav);
+  }
+});
 document.getElementById('spotlight-overlay').addEventListener('click', (e) => {
   if (e.target === document.getElementById('spotlight-overlay')) NoctOS.Spotlight.close();
 });
